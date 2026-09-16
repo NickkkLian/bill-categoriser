@@ -128,10 +128,10 @@ Only Claude has a default model id; for the others you name one from your provid
 
 | Provider | How to select it | What has been run |
 |---|---|---|
-| Claude (Anthropic) | default · `ANTHROPIC_API_KEY` | Request and reply format checked against a local mock of the documented API, from the CLI and from the page in a Chromium browser. **Not yet run against the live API** — `docs/llm-cache.json` does not exist until a maintainer runs it with a key. |
-| OpenAI | `LLM_PROVIDER=openai` · `OPENAI_API_KEY` · `LLM_MODEL` | Format checked against a local mock (sends `max_completion_tokens`, no `temperature`). Should work per OpenAI's documentation; **not run against the live API.** |
-| Google Gemini | `LLM_PROVIDER=gemini` · `GEMINI_API_KEY` · `LLM_MODEL` | Format checked against a local mock, from the CLI and from the page in a Chromium browser (key in the `x-goog-api-key` header). Should work per Google's documentation; **not run against the live API.** |
-| OpenAI-compatible | `LLM_PROVIDER=openai-compatible` · `LLM_BASE_URL` · `LLM_MODEL` · optional `LLM_API_KEY` | End to end in a Chromium browser against a local CORS-enabled mock endpoint: 20 of 20 rows got suggestions. **Not run against a real Ollama, LM Studio or vLLM server.** A server called from the page must allow its origin (Ollama: `OLLAMA_ORIGINS`). |
+| Claude (Anthropic) | default · `ANTHROPIC_API_KEY` | Request and reply format checked against a local mock of the documented API: end to end from the CLI (`tests/test_demo_llm.py`) and through the page's own adapter `docs/llm.js` in Node (`node docs/check-llm.mjs`, including the header Anthropic requires for calls from a page). **Not yet run against the live API** — `docs/llm-cache.json` does not exist until a maintainer runs it with a key. |
+| OpenAI | `LLM_PROVIDER=openai` · `OPENAI_API_KEY` · `LLM_MODEL` | Format checked against a local mock, from the CLI and through `docs/llm.js` (sends `max_completion_tokens`, no `temperature`). Should work per OpenAI's documentation; **not run against the live API.** |
+| Google Gemini | `LLM_PROVIDER=gemini` · `GEMINI_API_KEY` · `LLM_MODEL` | Format checked against a local mock, from the CLI and through `docs/llm.js` (key in the `x-goog-api-key` header). Should work per Google's documentation; **not run against the live API.** |
+| OpenAI-compatible | `LLM_PROVIDER=openai-compatible` · `LLM_BASE_URL` · `LLM_MODEL` · optional `LLM_API_KEY` | Format checked against a local mock, from the CLI and through `docs/llm.js` (no key, no `Authorization` header). **Not run against a real Ollama, LM Studio or vLLM server.** A server called from the page must allow its origin (Ollama: `OLLAMA_ORIGINS`). |
 
 ```sh
 python3 -m unittest discover -s tests -v     # adapter against a mock of each provider; demo.py build --llm end to end per provider
