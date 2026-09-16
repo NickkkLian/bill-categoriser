@@ -215,7 +215,7 @@ function dialog(title, body, { ok = 'OK', cancel = 'Cancel', danger = false } = 
   return new Promise(res => {
     const d = $('#dlg'); d.innerHTML = ''; const opener = document.activeElement;
     const form = h('form', { method: 'dialog' }, h('h2', {}, title), typeof body === 'string' ? h('p', { class: 'muted' }, body) : body,
-      h('div', { class: 'acts' }, cancel && h('button', { class: 'btn', value: 'cancel', type: 'submit' }, cancel), h('button', { class: 'btn ' + (danger ? 'btn-danger' : 'btn-primary'), value: 'ok', type: 'submit' }, ok)));
+      h('div', { class: 'acts' }, cancel && h('button', { class: 'btn', value: 'cancel', type: 'button', onclick: () => d.close('cancel') }, cancel), h('button', { class: 'btn ' + (danger ? 'btn-danger' : 'btn-primary'), value: 'ok', type: 'submit' }, ok)));
     d.append(form); d.addEventListener('close', () => { res(d.returnValue === 'ok'); opener && opener.focus && opener.focus(); }, { once: true }); d.showModal();
   });
 }
