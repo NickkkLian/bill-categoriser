@@ -1,10 +1,10 @@
 // check-web.mjs — proves docs/bills-engine.js (the browser rules) == demo.py (the CLI rules): RNG stream, generated rows, ledger bytes, workbook cells,
 // and the Python checker accepting a browser-built output folder (plus a negative control that must fail).
-import fs from 'node:fs'; import path from 'node:path'; import os from 'node:os'; import { spawnSync } from 'node:child_process';
+import fs from 'node:fs'; import path from 'node:path'; import { fileURLToPath } from 'node:url'; import os from 'node:os'; import { spawnSync } from 'node:child_process';
 import { createRequire } from 'node:module';
 const require = createRequire(import.meta.url);
 const E = require('./bills-engine.js');  // the same file the page loads
-const REPO = process.argv[2] || path.resolve(path.dirname(new URL(import.meta.url).pathname), '..');
+const REPO = process.argv[2] || path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const results = []; let failed = 0;
 const check = (name, ok, detail = '') => { results.push([ok ? 'PASS' : 'FAIL', name, detail]); if (!ok) failed++; };
 const py = (code, ...args) => { const r = spawnSync('python3', ['-B', '-', ...args], { cwd: REPO, input: code, encoding: 'utf-8', maxBuffer: 1 << 28 }); if (r.status !== 0) throw new Error('python failed: ' + r.stderr); return r.stdout; };
