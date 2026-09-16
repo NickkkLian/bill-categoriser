@@ -1,0 +1,6 @@
+__pycache__/
+.venv/
+.check-*/
+.break-*/
+output-*/
+*.inspect.ndjson
