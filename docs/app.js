@@ -396,7 +396,7 @@ function viewBills(main, m, p) {
 function viewReview(main, m, p) {
   const key = p.get('reason') || 'all', queue = filteredQueue(m, key), rc = reasonCounts(m), flagged = m.flagged.length, done = m.decidedCount;
   const sel = p.get('i') || (queue.find(r => !r.decided) || queue[0])?.id;
-  main.append(h('div', { class: 'page-head' }, h('h1', {}, 'Needs review'), h('span', { class: 'muted mono' }, `${done} of ${flagged} decided`), h('div', { class: 'progress', 'aria-hidden': 'true' }, h('i', { style: `width:${flagged ? done / flagged * 100 : 0}%` })), h('span', { class: 'muted mono' }, `${flagged - done} left`),
+  main.append(h('div', { class: 'page-head' }, h('h1', {}, 'Needs review'), h('span', { class: 'muted mono' }, `${done} of ${flagged} decided`), h('div', { class: 'progress', 'aria-hidden': 'true' }, h('i', { style: `transform:scaleX(${flagged ? done / flagged : 0})` })), h('span', { class: 'muted mono' }, `${flagged - done} left`),
     h('label', { class: 'check' }, h('input', { type: 'checkbox', checked: S.ui.autoAdvance, onchange: e => { S.ui.autoAdvance = e.target.checked; persist(); } }), ' auto-advance'),
     h('select', { 'aria-label': 'Sort', onchange: e => { S.ui.sort = e.target.value; persist(); render(); } }, h('option', { value: 'source', selected: S.ui.sort === 'source' }, 'Sort: source order'), h('option', { value: 'amount', selected: S.ui.sort === 'amount' }, 'Sort: amount ↓')),
     h('button', { class: 'btn', onclick: () => { S.ui.suggestOpen = !S.ui.suggestOpen; render(); } }, 'Suggestions ▾')));
@@ -568,7 +568,34 @@ function renderNav(view, m) {
   for (const [v, label] of NAV) { if (!m && v) continue; nav.append(h('a', { href: '#/' + v, 'aria-current': view === v ? 'page' : null, title: label, onclick: () => { nav.classList.remove('open'); } }, icon(v), h('span', {}, v === '' && m ? 'Import another' : label), counts[v] !== undefined ? h('span', { class: 'cnt' }, counts[v].toLocaleString()) : null)); }
   if (m) nav.append(h('button', { class: 'btn btn-ghost btn-sm collapse', onclick: () => { S.ui.navCollapsed = !S.ui.navCollapsed; persist(); render(); }, 'aria-label': S.ui.navCollapsed ? 'Expand navigation' : 'Collapse navigation', title: S.ui.navCollapsed ? 'Expand navigation' : 'Collapse navigation' }, h('span', { class: 'ico', 'aria-hidden': 'true' }, S.ui.navCollapsed ? '»' : '«'), h('span', {}, S.ui.navCollapsed ? '' : 'collapse')));
 }
+// Every render replaces the page's elements, so the control a keyboard user was on disappears and focus drops to <body>:
+// no focus ring, and Tab starts again from the top of the page (round-3 audit, 2026-09-16). render() puts focus back on the
+// same control (same attribute, or same label and position among its twins) or, when that control is gone, on the page heading.
+function focusKey(el) {
+  if (!el || el === document.body || el === document.documentElement) return null;
+  const scope = el.parentElement && el.parentElement.closest('[id]'), within = scope ? '#' + CSS.escape(scope.id) + ' ' : '', tag = el.tagName.toLowerCase();
+  const tries = ['id', 'data-id', 'data-key', 'data-sort', 'href', 'name'].filter(a => el.getAttribute(a)).map(a => within + tag + '[' + a + '="' + el.getAttribute(a).replace(/["\\]/g, '\\$&') + '"]');
+  // otherwise the same kind of control (tag and classes) at the same position: a row's Set button, or a toggle whose label flips
+  const kind = within + tag + (typeof el.className === 'string' && el.className.trim() ? '.' + el.className.trim().split(/\s+/).map(c => CSS.escape(c)).join('.') : '');
+  const index = [...document.querySelectorAll(kind)].indexOf(el);
+  const find = () => { for (const s of tries) { const x = document.querySelector(s); if (x) return x; } return index < 0 ? null : document.querySelectorAll(kind)[index] || null; };
+  find.caret = typeof el.selectionStart === 'number' ? [el.selectionStart, el.selectionEnd] : null;   // a text field keeps its caret
+  return find;
+}
+function restoreFocus(find) {
+  if (!find || (document.activeElement && document.activeElement !== document.body)) return;
+  let el = find();
+  if (!el || !el.getClientRects().length) { el = $('#main h1'); if (el && !el.hasAttribute('tabindex')) el.setAttribute('tabindex', '-1'); }
+  if (el) { el.focus(); if (find.caret && el.setSelectionRange) try { el.setSelectionRange(find.caret[0], find.caret[1]); } catch (e) { /* not a text field */ } }
+}
 function render() {
+  const find = focusKey(document.activeElement); renderPage();
+  // one primary button per screen (v1 §9.1): the top-bar "Start review" steps aside where the page shows its own
+  // (the overview plate, the review inspector, Export, the landing page's load button)
+  if ([...document.querySelectorAll('#main .btn-primary, #inspector .btn-primary')].some(b => b.getClientRects().length)) $('#primary-action').hidden = true;
+  restoreFocus(find);
+}
+function renderPage() {
   const { view, p } = route(); const main = $('#main'); main.innerHTML = '';
   const shell = $('#shell'); shell.classList.toggle('nav-collapsed', S.ui.navCollapsed);
   $('#pill-long').textContent = S.rows ? (S.source.kind === 'sample' ? ` · synthetic data · seed ${S.source.seed}` : ' · your file · parsed in this tab') : ' · synthetic data';
@@ -587,6 +614,7 @@ function render() {
 }
 function keyHandler(e) {
   const t = e.target; if (t.closest('input, select, textarea, [contenteditable]') || document.querySelector('dialog[open]')) return;
+  if (e.key === 'Enter' && t.closest('button, a[href], summary, [role="button"], [role="tab"]')) return;   // the control's own Enter, not a queue shortcut
   if (e.key === '?') { e.preventDefault(); helpDialog(); return; }
   if (e.key === 'Escape') { if ($('#nav').classList.contains('open')) { $('#nav').classList.remove('open'); return; } if (route().p.get('i')) { setParam('i', null); return; } }
   const { view, p } = route(); if (view !== 'review' || !S.rows) return;
