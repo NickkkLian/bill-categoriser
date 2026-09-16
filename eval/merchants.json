@@ -1,0 +1,163 @@
+{
+  "note": "Synthetic merchant names for evaluating the optional LLM categoriser. 20 names carry a keyword a rule could match; 10 need inference. Expected categories are the demo's fixed set.",
+  "categories": [
+    "Supplies",
+    "Utilities",
+    "Software",
+    "Rent",
+    "Transport"
+  ],
+  "pass_threshold": 0.8,
+  "items": [
+    {
+      "merchant": "Northwind Office Supplies",
+      "expected": "Supplies",
+      "kind": "keyword"
+    },
+    {
+      "merchant": "Paperclip Stationers Ltd",
+      "expected": "Supplies",
+      "kind": "keyword"
+    },
+    {
+      "merchant": "Harbour Packaging Supply",
+      "expected": "Supplies",
+      "kind": "keyword"
+    },
+    {
+      "merchant": "Quill & Ledger Stationers",
+      "expected": "Supplies",
+      "kind": "keyword"
+    },
+    {
+      "merchant": "Maple Hydro Utility",
+      "expected": "Utilities",
+      "kind": "keyword"
+    },
+    {
+      "merchant": "Lakeshore Water Services",
+      "expected": "Utilities",
+      "kind": "keyword"
+    },
+    {
+      "merchant": "Bluehill Fibre Internet",
+      "expected": "Utilities",
+      "kind": "keyword"
+    },
+    {
+      "merchant": "Prairie Gas Co-op",
+      "expected": "Utilities",
+      "kind": "keyword"
+    },
+    {
+      "merchant": "Orbit Cloud Software",
+      "expected": "Software",
+      "kind": "keyword"
+    },
+    {
+      "merchant": "Ledgerline SaaS",
+      "expected": "Software",
+      "kind": "keyword"
+    },
+    {
+      "merchant": "Nimbus Hosting Inc",
+      "expected": "Software",
+      "kind": "keyword"
+    },
+    {
+      "merchant": "Redwood App Licensing",
+      "expected": "Software",
+      "kind": "keyword"
+    },
+    {
+      "merchant": "Granite Property Lease",
+      "expected": "Rent",
+      "kind": "keyword"
+    },
+    {
+      "merchant": "Eastgate Landlord Trust",
+      "expected": "Rent",
+      "kind": "keyword"
+    },
+    {
+      "merchant": "Harbourview Realty Rent",
+      "expected": "Rent",
+      "kind": "keyword"
+    },
+    {
+      "merchant": "Summit Plaza Leasing",
+      "expected": "Rent",
+      "kind": "keyword"
+    },
+    {
+      "merchant": "Kestrel Freight Co",
+      "expected": "Transport",
+      "kind": "keyword"
+    },
+    {
+      "merchant": "Cedar Courier Express",
+      "expected": "Transport",
+      "kind": "keyword"
+    },
+    {
+      "merchant": "Northern Haulage Logistics",
+      "expected": "Transport",
+      "kind": "keyword"
+    },
+    {
+      "merchant": "Bayline Shipping",
+      "expected": "Transport",
+      "kind": "keyword"
+    },
+    {
+      "merchant": "Inkwell & Binder",
+      "expected": "Supplies",
+      "kind": "inference"
+    },
+    {
+      "merchant": "Toner Depot",
+      "expected": "Supplies",
+      "kind": "inference"
+    },
+    {
+      "merchant": "Lumen Grid Co",
+      "expected": "Utilities",
+      "kind": "inference"
+    },
+    {
+      "merchant": "Aquaflow Municipal Billing",
+      "expected": "Utilities",
+      "kind": "inference"
+    },
+    {
+      "merchant": "Bytecraft Studio",
+      "expected": "Software",
+      "kind": "inference"
+    },
+    {
+      "merchant": "Kernel Forge Labs",
+      "expected": "Software",
+      "kind": "inference"
+    },
+    {
+      "merchant": "Unit 4B Occupancy",
+      "expected": "Rent",
+      "kind": "inference"
+    },
+    {
+      "merchant": "Brickstone Premises",
+      "expected": "Rent",
+      "kind": "inference"
+    },
+    {
+      "merchant": "Pallet & Axle",
+      "expected": "Transport",
+      "kind": "inference"
+    },
+    {
+      "merchant": "Last Mile Runners",
+      "expected": "Transport",
+      "kind": "inference"
+    }
+  ]
+}

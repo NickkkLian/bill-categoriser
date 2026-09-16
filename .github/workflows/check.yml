@@ -18,3 +18,49 @@ jobs:
         with:
           python-version: ${{ matrix.python }}
       - run: python -B demo.py check
+  break:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - run: python -B demo.py break
+  web:
+    # The browser rules (docs/bills-engine.js) must equal the CLI rules (demo.py): RNG stream, ledger bytes,
+    # workbook cells, and `demo.py check` accepting a browser-built output folder (plus a negative control).
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - run: node docs/check-web.mjs
+  llm-adapters:
+    # llm.py and docs/llm.js against a local mock of each provider (Anthropic, OpenAI, Gemini, OpenAI-compatible),
+    # plus `demo.py build --llm` end to end per provider. No keys, no network beyond 127.0.0.1.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.9'
+      - run: python -B -m unittest discover -s tests -v
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node docs/check-llm.mjs
+  eval:
+    # Scores the cached model output on eval/merchants.json. Only runs once docs/llm-cache.json exists
+    # (populated by `python -B demo.py eval --llm` with any provider's key on a maintainer's machine).
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - run: |
+          if [ -f docs/llm-cache.json ]; then python -B demo.py eval; else echo "no docs/llm-cache.json yet — eval not run"; fi

@@ -1,5 +1,6 @@
 """Deterministic synthetic bill cleaning. Python standard library only."""
 import argparse
+import os
 import copy
 import datetime as dt
 from decimal import Decimal, InvalidOperation
@@ -14,6 +15,8 @@ import tempfile
 import contextlib
 import shutil
 import uuid
+import urllib.error
+import llm  # provider-agnostic LLM calls: anthropic (default), openai, gemini, openai-compatible
 import xlsx_io as xlsx
 
 ROOT=Path(__file__).resolve().parent
@@ -23,6 +26,79 @@ MERCHANTS=[('Demo Supply 01','Supplies'),('Demo Utility 02','Utilities'),('Demo 
 ALIASES={re.sub(r'[^a-z0-9]','',m.lower()):m for m,c in MERCHANTS}
 CATEGORY=dict(MERCHANTS)
 DEFAULT_HIGH_CENTS=250000
+LLM_CACHE=ROOT/'docs'/'llm-cache.json'   # served by the web version too; keyed by normalised merchant name
+CATEGORIES=sorted({c for _,c in MERCHANTS if c!='Uncategorised'})
+KEYWORDS=[(re.compile(r'supply|supplies|office|paper|stationer',re.I),'Supplies'),(re.compile(r'utility|hydro|electric|water|gas|power|energy|telecom|fibre|fiber|internet',re.I),'Utilities'),(re.compile(r'software|saas|cloud|app|hosting|licen',re.I),'Software'),(re.compile(r'lease|rent|landlord|property|realty',re.I),'Rent'),(re.compile(r'carrier|freight|courier|shipping|transport|logistic|delivery|haul',re.I),'Transport')]
+def norm(m):return re.sub(r'[^a-z0-9]','',m.lower())
+def keyword_guess(m):
+    for rx,c in KEYWORDS:
+        if rx.search(m):return c
+    return None
+def load_cache():
+    if not LLM_CACHE.exists():return {'model':None,'entries':{}}
+    return json.loads(LLM_CACHE.read_text(encoding='utf-8'))
+def validate_cache(cache):
+    """Cache shape: {"model": str, "generated": ISO date, "entries": {norm(merchant): {"merchant","category"|null,"confidence","reason"}}}."""
+    assert isinstance(cache.get('entries'),dict),'llm-cache: entries must be an object'
+    for k,e in cache['entries'].items():
+        assert k==norm(e.get('merchant','')),'llm-cache: key does not match normalised merchant '+k
+        assert e.get('category') is None or e['category'] in CATEGORIES,'llm-cache: category outside the allowed set for '+k
+        assert e.get('confidence') is None or 0<=float(e['confidence'])<=1,'llm-cache: confidence outside 0..1 for '+k
+    if cache['entries']:assert cache.get('model') and cache.get('generated') and cache.get('provider') in llm.PROVIDERS,'llm-cache: provider, model and generated date required'
+def ask_llm(merchants):
+    """One call to whichever provider LLM_PROVIDER names (see llm.py). Returns ({norm: entry}, model, provider).
+    Any failure raises; callers fall back to Uncategorised."""
+    cfg=llm.config_from_env()
+    system=('You classify small-business bill merchants into exactly one of these categories: '+', '.join(CATEGORIES)+'. If the name gives no reliable signal, use null. Reply with JSON only: an array of {"merchant": string, "category": string|null, "confidence": number 0-1, "reason": short string}. Never invent facts about the merchant.')
+    text,model=llm.complete(cfg,system,json.dumps([{'merchant':m} for m in merchants]))
+    out={}
+    for x in llm.extract_json(text,'array'):
+        if not isinstance(x,dict) or not isinstance(x.get('merchant'),str):continue
+        cat=x.get('category') if x.get('category') in CATEGORIES else None
+        conf=x.get('confidence');conf=float(conf) if isinstance(conf,(int,float)) and 0<=conf<=1 else None
+        out[norm(x['merchant'])]={'merchant':x['merchant'],'category':cat,'confidence':conf,'reason':str(x.get('reason',''))[:140]}
+    return out,model,cfg['provider']
+def llm_fill(merchants,cache):
+    """Fill cache entries for merchants not yet cached. Returns (added, error)."""
+    missing=[m for m in merchants if norm(m) not in cache['entries']]
+    if not missing:return 0,None
+    try:
+        got,model,provider=ask_llm(missing)
+    except (llm.ConfigError,llm.ProviderError,urllib.error.URLError,ValueError,OSError,KeyError) as e:
+        return 0,f'{type(e).__name__}: {e}'
+    for m in missing:
+        e=got.get(norm(m)) or {'merchant':m,'category':None,'confidence':None,'reason':'no answer from the model'}
+        e['merchant']=m;cache['entries'][norm(m)]=e
+    cache['provider']=provider;cache['model']=model;cache['generated']=dt.date.today().isoformat()
+    return len(missing),None
+def save_cache(cache):
+    validate_cache(cache);LLM_CACHE.parent.mkdir(parents=True,exist_ok=True)
+    LLM_CACHE.write_text(json.dumps(cache,indent=2,ensure_ascii=True,sort_keys=True)+'\n',encoding='utf-8')
+def llm_suggestions(model):
+    """Suggestions for Uncategorised merchants from the cache. Advisory only: the ledger and workbook never change."""
+    cache=load_cache();validate_cache(cache)
+    names=sorted({r['merchant'] for r in model['records'] if r['category']=='Uncategorised'})
+    return {'provider':cache.get('provider'),'model':cache.get('model'),'generated':cache.get('generated'),'suggestions':{m:cache['entries'].get(norm(m)) for m in names}}
+def eval_llm(use_llm=False):
+    """Score cached model output (and the keyword baseline) on eval/merchants.json. Exit 0 pass, 1 fail, 2 not run."""
+    spec=json.loads((ROOT/'eval'/'merchants.json').read_text(encoding='utf-8'));items=spec['items'];cache=load_cache();validate_cache(cache)
+    if use_llm:
+        added,err=llm_fill([i['merchant'] for i in items],cache)
+        if err:print('LLM call failed: '+err);return 2
+        save_cache(cache);print(f'LLM cache: {added} new entries ({cache["provider"]} · {cache["model"]}, {cache["generated"]})')
+    base=sum(keyword_guess(i['merchant'])==i['expected'] for i in items)
+    cached=[i for i in items if norm(i['merchant']) in cache['entries']]
+    print(f'keyword baseline: {base}/{len(items)} = {base/len(items):.0%} (by construction: 20 keyword names + 10 that need inference)')
+    if len(cached)<len(items):
+        print(f'NOT RUN: cached model output covers {len(cached)}/{len(items)} eval merchants. Populate with: ANTHROPIC_API_KEY=... python3 -B demo.py eval --llm  (or LLM_PROVIDER=openai|gemini|openai-compatible with LLM_MODEL and the key for that provider)');return 2
+    hits=[i for i in items if cache['entries'][norm(i['merchant'])]['category']==i['expected']]
+    by={k:(sum(1 for i in hits if i['kind']==k),sum(1 for i in items if i['kind']==k)) for k in ('keyword','inference')}
+    acc=len(hits)/len(items)
+    print(f'model {cache["model"]} ({cache["generated"]}): {len(hits)}/{len(items)} = {acc:.0%} · keyword names {by["keyword"][0]}/{by["keyword"][1]} · inference names {by["inference"][0]}/{by["inference"][1]}')
+    for i in items:
+        e=cache['entries'][norm(i['merchant'])]
+        if e['category']!=i['expected']:print(f'  miss: {i["merchant"]!r} expected {i["expected"]} got {e["category"]} ({e.get("reason","")[:60]})')
+    ok=acc>=spec['pass_threshold'];print(('EVAL PASS' if ok else 'EVAL FAIL')+f' (threshold {spec["pass_threshold"]:.0%})');return 0 if ok else 1
 
 @contextlib.contextmanager
 def scratch(prefix):
@@ -169,13 +245,22 @@ def workbook_tables(model):
         if abs(r['cents'])<high_cents:continue
         rn=5+bill.index(r);sumrows.append([r['invoice'],formula(f"'Bills'!F{rn}",amt(r)),None,r['merchant']])
     result['Summary']=sumrows;return result
-def build(dest,seed=42,high_cents=DEFAULT_HIGH_CENTS):
+def build(dest,seed=42,high_cents=DEFAULT_HIGH_CENTS,use_llm=False):
     dest=Path(dest);dest.mkdir(parents=True,exist_ok=True)
     xlsx.fill(ROOT/'templates/input-template.xlsx',dest/'dirty-input.xlsx',generate(seed))
     model=clean(read_input(dest/'dirty-input.xlsx'),high_cents);model['seed']=seed;model['high_amount_cents']=high_cents
     dump(dest/'ledger.json',model)
     xlsx.fill(ROOT/'templates/output-template.xlsx',dest/'cleaned-bills.xlsx',workbook_tables(model))
     rec=model['reconciliation'];print('BUILD '+json.dumps(rec,sort_keys=True))
+    if use_llm:
+        cache=load_cache();validate_cache(cache)
+        names=sorted({r['merchant'] for r in model['records'] if r['category']=='Uncategorised'})
+        added,err=llm_fill(names,cache)
+        if err:print('LLM step skipped, falling back to Uncategorised: '+err)
+        else:
+            if added:save_cache(cache)
+            sug=llm_suggestions(model);dump(dest/'llm-suggestions.json',sug)
+            print(f'LLM suggestions for {len(sug["suggestions"])} uncategorised merchants written to llm-suggestions.json (advisory; ledger unchanged; {sug["provider"]} · {sug["model"]})')
     return model
 def normal(value):
     if isinstance(value,dt.date):return (value-dt.date(1899,12,30)).days
@@ -238,6 +323,12 @@ def verify(dest,repeat=True,expected_high_cents=DEFAULT_HIGH_CENTS):
     assert any('possible duplicate' in ';'.join(r['reasons']) and r['status']=='clean' for r in got['records'])
     assert any(r['raw'][1].startswith('=') for r in got['records'])
     print('PASS zero/refund/invalid amount/ambiguous date/near duplicate/formula-like literal boundaries')
+    cache=load_cache();validate_cache(cache)
+    if (dest/'llm-suggestions.json').exists():
+        sug=json.loads((dest/'llm-suggestions.json').read_text(encoding='utf-8'))
+        assert sug==llm_suggestions(got),'llm-suggestions.json does not match the cache projection for this ledger'
+        assert all(r['category']=='Uncategorised' for r in got['records'] if r['merchant'] in sug['suggestions']),'LLM suggestions must stay advisory: a suggested merchant was categorised in the ledger'
+    print(f'PASS LLM cache well-formed ({len(cache["entries"])} entries) and suggestions, if present, are advisory and match the cache')
     if repeat:
         with scratch('.check-') as temp:
             p=Path(temp);build(p/'a',got['seed'],got['high_amount_cents']);build(p/'b',got['seed'],got['high_amount_cents'])
@@ -262,7 +353,7 @@ def break_demo(dest):
         print('EXPECTED FAILURE OBSERVED; delivered workbook unchanged')
     with scratch('.threshold-break-') as temp:
         p=Path(temp);(p/'templates').mkdir()
-        for f in ('xlsx_io.py',):(p/f).write_bytes((ROOT/f).read_bytes())
+        for f in ('xlsx_io.py','llm.py'):(p/f).write_bytes((ROOT/f).read_bytes())
         for f in ('input-template.xlsx','output-template.xlsx'):(p/'templates'/f).write_bytes((ROOT/'templates'/f).read_bytes())
         code=(ROOT/'demo.py').read_bytes().replace(b'DEFAULT_HIGH_CENTS=250000',b'DEFAULT_HIGH_CENTS=100000')
         assert code!=(ROOT/'demo.py').read_bytes(),'threshold source mutation was not applied'
@@ -275,12 +366,28 @@ def break_demo(dest):
         print('CHILD_EXIT_CODE='+str(result.returncode))
         assert result.returncode==1 and 'must produce exactly 39 review rows' in result.stdout,'threshold mutation did not trigger the dedicated default review-count check'
         print('EXPECTED THRESHOLD FAILURE OBSERVED; only the default review-count assertion rejects this otherwise consistent build')
+def break_cache():
+    """Mutation 3: a cache entry outside the allowed category set must make `check` fail."""
+    with scratch('.cache-break-') as temp:
+        p=Path(temp);(p/'templates').mkdir();(p/'docs').mkdir();(p/'output').mkdir()
+        for f in ('xlsx_io.py','demo.py','llm.py'):(p/f).write_bytes((ROOT/f).read_bytes())
+        for f in ('input-template.xlsx','output-template.xlsx'):(p/'templates'/f).write_bytes((ROOT/'templates'/f).read_bytes())
+        for f in ('dirty-input.xlsx','cleaned-bills.xlsx','ledger.json'):(p/'output'/f).write_bytes((ROOT/'output'/f).read_bytes())
+        cache=load_cache();cache['entries']={'demoother06':{'merchant':'Demo Other 06','category':'Snacks','confidence':0.9,'reason':'mutated'}};cache['provider']=cache.get('provider') or 'anthropic';cache['model']=cache.get('model') or 'mutated';cache['generated']=cache.get('generated') or '2026-01-01'
+        (p/'docs'/'llm-cache.json').write_text(json.dumps(cache),encoding='utf-8')
+        print('MUTATION wrote a cache entry with category "Snacks" (outside the allowed set) into an isolated copy',flush=True)
+        command=[sys.executable,'-B',str(p/'demo.py'),'check','--no-repeat']
+        result=subprocess.run(command,capture_output=True,text=True,encoding='utf-8');print(result.stdout,end='');print(result.stderr,end='')
+        print('CHILD_EXIT_CODE='+str(result.returncode))
+        assert result.returncode==1 and 'category outside the allowed set' in result.stdout,'cache mutation did not trigger the cache validation'
+        print('EXPECTED CACHE FAILURE OBSERVED; the real cache is untouched')
 def main():
-    p=argparse.ArgumentParser();p.add_argument('command',choices=['build','check','break']);p.add_argument('--out',type=Path,default=ROOT/'output');p.add_argument('--seed',type=int,default=42);p.add_argument('--high-cad',type=threshold_cents,default=DEFAULT_HIGH_CENTS,metavar='AMOUNT');p.add_argument('--no-repeat',action='store_true');a=p.parse_args()
+    p=argparse.ArgumentParser();p.add_argument('command',choices=['build','check','break','eval']);p.add_argument('--out',type=Path,default=ROOT/'output');p.add_argument('--seed',type=int,default=42);p.add_argument('--high-cad',type=threshold_cents,default=DEFAULT_HIGH_CENTS,metavar='AMOUNT');p.add_argument('--no-repeat',action='store_true');p.add_argument('--llm',action='store_true',help='build: ask a model about uncategorised merchants (LLM_PROVIDER anthropic|openai|gemini|openai-compatible, default anthropic; needs that provider\'s key and, except for Claude, LLM_MODEL; advisory, cached); eval: populate the eval cache');a=p.parse_args()
     try:
-        if a.command=='build':build(a.out,a.seed,a.high_cad)
+        if a.command=='build':build(a.out,a.seed,a.high_cad,a.llm)
         elif a.command=='check':verify(a.out,not a.no_repeat,a.high_cad)
-        else:break_demo(a.out)
+        elif a.command=='eval':return eval_llm(a.llm)
+        else:break_demo(a.out);break_cache()
     except (AssertionError,ValueError,KeyError,OSError) as e:print('FAIL: '+str(e));return 1
     return 0
 if __name__=='__main__':sys.exit(main())
