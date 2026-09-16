@@ -175,6 +175,7 @@
 
 /* Nested preview of the default theme. */
 [data-theme="plaster"] {
+  color-scheme: light;
   --paper: #fefaf9;
   --surface: var(--paper);
   --bg: #faece9;
@@ -193,6 +194,7 @@
 
 /* --- Paper, light (70 colour tokens differ from the default) --- */
 :root[data-theme="paper"], [data-theme="paper"] {
+  color-scheme: light;
   --paper: #fffefe;
   --bg: #fffbfb;
   --surface-2: #f5fdf6;
@@ -267,6 +269,7 @@
 
 /* --- Ink, light (74 colour tokens differ from the default) --- */
 :root[data-theme="ink"], [data-theme="ink"] {
+  color-scheme: light;
   --paper: #fbfdfc;
   --bg: #ecf7f3;
   --surface-2: #f5e5e7;
@@ -345,6 +348,7 @@
 
 @media (prefers-color-scheme: dark) {
 :root:not([data-scheme="light"]):not([data-theme="light"]) {
+    color-scheme: dark;
     --paper: #22211c;
     --surface: var(--paper);
     --bg: #12110c;
@@ -426,6 +430,7 @@
     --shadow-2: 2px 3px 10px rgb(0 0 0 / 0.5), 6px 16px 38px -10px rgb(0 0 0 / 0.66);
 }
 [data-theme="plaster"]:not([data-scheme="light"]) {
+    color-scheme: dark;
     --paper: #22211c;
     --surface: var(--paper);
     --bg: #12110c;
@@ -442,6 +447,7 @@
     --accent-text: #c5867d;
 }
 :root[data-theme="paper"]:not([data-scheme="light"]) {
+    color-scheme: dark;
     --paper: #24201c;
     --surface: var(--paper);
     --bg: #13100c;
@@ -523,6 +529,7 @@
     --shadow-2: 2px 3px 10px rgb(0 0 0 / 0.5), 6px 16px 38px -10px rgb(0 0 0 / 0.66);
 }
 [data-theme="paper"]:not([data-scheme="light"]) {
+    color-scheme: dark;
     --paper: #24201c;
     --surface: var(--paper);
     --bg: #13100c;
@@ -539,6 +546,7 @@
     --accent-text: #c5867f;
 }
 :root[data-theme="ink"]:not([data-scheme="light"]) {
+    color-scheme: dark;
     --paper: #1c2323;
     --surface: var(--paper);
     --bg: #0c1212;
@@ -620,6 +628,7 @@
     --shadow-2: 2px 3px 10px rgb(0 0 0 / 0.5), 6px 16px 38px -10px rgb(0 0 0 / 0.66);
 }
 [data-theme="ink"]:not([data-scheme="light"]) {
+    color-scheme: dark;
     --paper: #1c2323;
     --surface: var(--paper);
     --bg: #0c1212;
@@ -641,6 +650,7 @@
    the dark values with ^:root\[data-theme="dark"\]\s*\{ and would silently read
    light values as dark if this were folded into a selector list. */
 :root[data-theme="dark"] {
+  color-scheme: dark;
   --paper: #22211c;
   --surface: var(--paper);
   --bg: #12110c;
@@ -723,6 +733,7 @@
 }
 
 :root[data-scheme="dark"] {
+  color-scheme: dark;
   --paper: #22211c;
   --surface: var(--paper);
   --bg: #12110c;
@@ -805,6 +816,7 @@
 }
 
 [data-theme="plaster"][data-scheme="dark"] {
+  color-scheme: dark;
   --paper: #22211c;
   --surface: var(--paper);
   --bg: #12110c;
@@ -822,6 +834,7 @@
 }
 
 :root[data-theme="paper"][data-scheme="dark"], [data-theme="paper"][data-scheme="dark"] {
+  color-scheme: dark;
   --paper: #24201c;
   --surface: var(--paper);
   --bg: #13100c;
@@ -904,6 +917,7 @@
 }
 
 :root[data-theme="ink"][data-scheme="dark"], [data-theme="ink"][data-scheme="dark"] {
+  color-scheme: dark;
   --paper: #1c2323;
   --surface: var(--paper);
   --bg: #0c1212;
