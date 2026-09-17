@@ -14,17 +14,22 @@
                                               returning it, read on every open) may carry `strings` (see STRINGS)
                                               and `sections` (extra nodes after Appearance, e.g. a connection form).
      Appearance.settings(opts)                the Theme and Appearance controls alone, for mounting elsewhere.
+     Single-key shortcuts (products that have them pass `shortcuts`, a one-line description of their keys): an On | Off
+     group after Appearance, stored as nl-shortcuts ("off" turns them off; anything else, or nothing, is on). Products
+     read Appearance.shortcutsOn() before acting on a page-level single key (WCAG 2.1.4; ruling 2026-09-16 20:11 Q3).
    No dependencies. Styles use design tokens only. */
 (function (root) {
   'use strict';
-  var KEY_THEME = 'nl-theme', KEY_SCHEME = 'nl-scheme';
+  var KEY_THEME = 'nl-theme', KEY_SCHEME = 'nl-scheme', KEY_SHORTCUTS = 'nl-shortcuts';
   var THEMES = ['plaster', 'paper', 'ink'];
   var THEME_NAMES = { plaster: 'Plaster', paper: 'Paper', ink: 'Ink' };   // names, not translated
   var SCHEMES = ['system', 'light', 'dark'];
   var STRINGS = {
     en: { title: 'Settings', theme: 'Theme', appearance: 'Appearance', system: 'System', light: 'Light', dark: 'Dark',
+          shortcuts: 'Single-key shortcuts', on: 'On', off: 'Off',
           caption: 'Saved in this browser only. Plaster and System are the defaults.', done: 'Done' },
     zh: { title: '设置', theme: '配色', appearance: '明暗', system: '跟随系统', light: '浅色', dark: '深色',
+          shortcuts: '单键快捷键', on: '开', off: '关',
           caption: '只保存在这个浏览器里。Plaster 与「跟随系统」是默认值。', done: '完成' }
   };
   var doc = document, html = doc.documentElement;
@@ -44,13 +49,20 @@
     var metas = doc.querySelectorAll('meta[name="theme-color"]');
     for (var i = 0; i < metas.length; i++) metas[i].setAttribute('content', bg);
   }
+  function shortcutsOn() { try { return localStorage.getItem(KEY_SHORTCUTS) !== 'off'; } catch (e) { return true; } }
+  function setShortcuts(on) {
+    try { localStorage.setItem(KEY_SHORTCUTS, on ? 'on' : 'off'); } catch (e) { /* private mode: nothing to keep */ }
+    syncControls();
+    try { doc.dispatchEvent(new CustomEvent('shortcutschange', { detail: { on: shortcutsOn() } })); } catch (e) {}
+    return shortcutsOn();
+  }
   function syncControls() {
-    var cur = get(), dark = String(isDark()), i;
+    var cur = get(), dark = String(isDark()), i, sc = shortcutsOn() ? 'on' : 'off';
     for (i = 0; i < toggles.length; i++) toggles[i].setAttribute('aria-pressed', dark);
     var radios = doc.querySelectorAll('.nl-settings input[type="radio"]');
     for (i = 0; i < radios.length; i++) {
-      var r = radios[i];
-      r.checked = r.getAttribute('data-nl') === 'theme' ? r.value === cur.theme : r.value === cur.scheme;
+      var r = radios[i], kind = r.getAttribute('data-nl');
+      r.checked = kind === 'theme' ? r.value === cur.theme : kind === 'shortcuts' ? r.value === sc : r.value === cur.scheme;
     }
     // swatches preview each palette in the light/dark that is currently forced (system: the OS decides)
     var sw = doc.querySelectorAll('.nl-swatch');
@@ -105,6 +117,7 @@
       '.nl-seg label:has(input:checked){background:var(--paper);color:var(--text);font-weight:var(--weight-medium);box-shadow:var(--shadow-1),inset 0 0 0 1px var(--border-input)}',
       '.nl-caption{margin:0;font-family:var(--font-display);font-style:var(--caption-style);font-weight:400;font-variation-settings:"opsz" var(--opsz-caption);',
       'font-size:var(--text-sm);line-height:var(--leading-relaxed);color:var(--text-2);max-width:var(--measure)}',
+      '.nl-note{margin:0;font-size:var(--text-xs);line-height:var(--leading-normal);color:var(--text-2);max-width:var(--measure)}',
       '@media (pointer:coarse){.nl-seg label{height:var(--touch-min)}.nl-pick{min-height:var(--touch-min)}.nl-dialog .nl-done{min-height:var(--touch-min);min-width:var(--touch-min)}}',
       '@media (prefers-reduced-motion:reduce){.nl-pick:active,.nl-dialog .nl-done:active{transform:none;background:var(--neutral-tint)}}',
       '.nl-dialog{border:1px solid var(--border);border-radius:var(--radius-lg);background:var(--surface-raised);color:var(--text);box-shadow:var(--shadow-2);',
@@ -132,7 +145,7 @@
   function radio(kind, name, value, checked) {
     var input = el('input', { type: 'radio', name: name, value: value, 'data-nl': kind });
     input.checked = checked;
-    input.addEventListener('change', function () { if (input.checked) { var n = {}; n[kind] = value; set(n); } });
+    input.addEventListener('change', function () { if (!input.checked) return; if (kind === 'shortcuts') { setShortcuts(value === 'on'); return; } var n = {}; n[kind] = value; set(n); });
     return input;
   }
   function strings(opts) {
@@ -158,6 +171,11 @@
       el('fieldset', { class: 'nl-pickset' }, [el('legend', {}, [S.theme]), picks]),
       el('fieldset', { class: 'nl-pickset' }, [el('legend', {}, [S.appearance]), seg])
     ]);
+    if (opts.shortcuts) {
+      var on = shortcutsOn(), keys = el('div', { class: 'nl-seg' }), note = el('p', { class: 'nl-note', id: 'nl-shortcuts-note-' + n }, [String(opts.shortcuts)]);
+      ['on', 'off'].forEach(function (v) { keys.appendChild(el('label', {}, [radio('shortcuts', 'nl-shortcuts-' + n, v, (v === 'on') === on), S[v]])); });
+      box.appendChild(el('fieldset', { class: 'nl-pickset', 'aria-describedby': 'nl-shortcuts-note-' + n }, [el('legend', {}, [S.shortcuts]), keys, note]));
+    }
     if (opts.caption !== false) box.appendChild(el('p', { class: 'nl-caption' }, [S.caption]));
     return box;
   }
@@ -215,7 +233,7 @@
 
   root.Appearance = {
     get: get, set: set, isDark: isDark, toggleScheme: toggleScheme, bindToggle: bindToggle, bindSettings: bindSettings,
-    settings: settings, openSettings: openSettings, STRINGS: STRINGS,
-    THEMES: THEMES, SCHEMES: SCHEMES, KEYS: { theme: KEY_THEME, scheme: KEY_SCHEME }
+    settings: settings, openSettings: openSettings, STRINGS: STRINGS, shortcutsOn: shortcutsOn, setShortcuts: setShortcuts,
+    THEMES: THEMES, SCHEMES: SCHEMES, KEYS: { theme: KEY_THEME, scheme: KEY_SCHEME, shortcuts: KEY_SHORTCUTS }
   };
 })(typeof self !== 'undefined' ? self : this);

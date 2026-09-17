@@ -228,7 +228,8 @@ function dialog(title, body, { ok = 'OK', cancel = 'Cancel', danger = false } = 
 }
 function helpDialog() {
   const rows = [['j / k', 'next / previous row in the queue'], ['a', 'Confirm as is'], ['c', 'Set category'], ['d', 'Mark duplicate of…'], ['x', 'Exclude'], ['u', 'Undo last decision'], ['Enter', 'Open in inspector'], ['Esc', 'Close inspector / drawer'], ['?', 'This help']];
-  dialog('Keyboard shortcuts', h('div', {}, h('table', {}, rows.map(([k, v]) => h('tr', {}, h('td', {}, h('kbd', {}, k)), h('td', { class: 'muted' }, v)))), h('p', { class: 'muted', style: 'margin-top:12px' }, 'Single-key shortcuts only work while the review queue has focus and no text field is active.')), { ok: 'Close', cancel: null });
+  dialog('Keyboard shortcuts', h('div', {}, Appearance.shortcutsOn() ? null : h('p', { style: 'margin-bottom:12px' }, 'Single-key shortcuts are off — turn them on in Settings.'),
+    h('table', {}, rows.map(([k, v]) => h('tr', {}, h('td', {}, h('kbd', {}, k)), h('td', { class: 'muted' }, v)))), h('p', { class: 'muted', style: 'margin-top:12px' }, 'Letter shortcuts work while the review queue or the inspector has focus and no text field is active.')), { ok: 'Close', cancel: null });
 }
 
 /* ---------- shared UI pieces ---------- */
@@ -643,25 +644,30 @@ function roving(e) {
   if (!next) return false;
   e.preventDefault(); next.focus(); if (next !== opt) next.click(); return true;
 }
+// Page-level single keys follow the Settings switch (Appearance.shortcutsOn); the letter keys act only while focus is in the
+// review queue or the inspector, as the help says (a letter pressed on a navigation link used to exclude a row; ruling
+// 2026-09-16 20:11 Q3). Keys that belong to the focused control itself — arrows in the queue, Enter on a row — always work.
 function keyHandler(e) {
   const t = e.target; if (t.closest('input, select, textarea, [contenteditable]') || document.querySelector('dialog[open]')) return;
   if (roving(e)) return;
+  const on = Appearance.shortcutsOn(), inQueue = !!t.closest('#queue'), inPanel = !!t.closest('#queue, #inspector');
   if (e.key === 'Enter' && t.closest('button, a[href], summary, [role="button"], [role="tab"]')) return;   // the control's own Enter, not a queue shortcut
-  if (e.key === '?') { e.preventDefault(); helpDialog(); return; }
+  if (e.key === '?') { if (on) { e.preventDefault(); helpDialog(); } return; }
   if (e.key === 'Escape') { if ($('#nav').classList.contains('open')) { $('#nav').classList.remove('open'); return; } if (route().p.get('i')) { setParam('i', null); return; } }
   const { view, p } = route(); if (view !== 'review' || !S.rows) return;
   const m = M(), queue = filteredQueue(m, p.get('reason') || 'all'), cur = m.byId[p.get('i')] || queue.find(x => !x.decided) || queue[0]; if (!cur) return;
   const i = queue.indexOf(cur);
-  if (e.key === 'j' || e.key === 'ArrowDown') { e.preventDefault(); const n = queue[Math.min(queue.length - 1, i + 1)]; if (n) { setParam('i', n.id); setTimeout(() => $(`#queue li[data-id="${CSS.escape(n.id)}"]`)?.focus(), 0); } }
-  else if (e.key === 'k' || e.key === 'ArrowUp') { e.preventDefault(); const n = queue[Math.max(0, i - 1)]; if (n) { setParam('i', n.id); setTimeout(() => $(`#queue li[data-id="${CSS.escape(n.id)}"]`)?.focus(), 0); } }
-  else if (e.key === 'Enter') { setParam('i', cur.id); setTimeout(focusInspector, 0); }
-  else if (['a', 'c', 'd', 'x'].includes(e.key)) { const b = $(`#inspector [data-key="${e.key}"]`); if (b) { e.preventDefault(); b.click(); } }
-  else if (e.key === 'u') { const d = S.decisions.filter(x => !x.undoneBy && x.action !== 'undo').pop(); if (d) { undoDecision(d.id); toast('Undid last decision'); render(); } }
+  const arrowsOk = inQueue || on, lettersOk = on && inPanel;
+  if ((e.key === 'j' && lettersOk) || (e.key === 'ArrowDown' && arrowsOk)) { e.preventDefault(); const n = queue[Math.min(queue.length - 1, i + 1)]; if (n) { setParam('i', n.id); setTimeout(() => $(`#queue li[data-id="${CSS.escape(n.id)}"]`)?.focus(), 0); } }
+  else if ((e.key === 'k' && lettersOk) || (e.key === 'ArrowUp' && arrowsOk)) { e.preventDefault(); const n = queue[Math.max(0, i - 1)]; if (n) { setParam('i', n.id); setTimeout(() => $(`#queue li[data-id="${CSS.escape(n.id)}"]`)?.focus(), 0); } }
+  else if (e.key === 'Enter' && arrowsOk) { setParam('i', cur.id); setTimeout(focusInspector, 0); }
+  else if (lettersOk && ['a', 'c', 'd', 'x'].includes(e.key)) { const b = $(`#inspector [data-key="${e.key}"]`); if (b) { e.preventDefault(); b.click(); } }
+  else if (lettersOk && e.key === 'u') { const d = S.decisions.filter(x => !x.undoneBy && x.action !== 'undo').pop(); if (d) { undoDecision(d.id); toast('Undid last decision'); render(); } }
 }
 async function init() {
   const root = document.documentElement, tb = $('#theme');
   Appearance.bindToggle(tb);   // ◐ switches light/dark only (appearance.js)
-  Appearance.bindSettings($('#nl-settings-button'));   // the gear: palette + light/dark
+  Appearance.bindSettings($('#nl-settings-button'), { shortcuts: 'Letter keys act on the review queue and ? opens help. Turn them off if you use voice control. On by default.' });   // the gear: palette, light/dark, single-key shortcuts
   $('#help').addEventListener('click', helpDialog);
   $('#sections').addEventListener('click', () => $('#nav').classList.toggle('open'));
   document.addEventListener('keydown', keyHandler);
