@@ -143,7 +143,7 @@ kbd{display:inline-block;min-width:18px;padding:0 var(--space-1);border:1px soli
 
 /* ===== tables ===== */
 .toolbar{display:flex;flex-wrap:wrap;gap:var(--space-2);align-items:center;margin-bottom:var(--space-3)}
-.toolbar input[type=search],.toolbar select,.field input,.field select{height:var(--control-h);padding:0 var(--space-2);border:1px solid var(--border-input);border-radius:var(--radius-sm);background:var(--surface);color:var(--text);font-size:var(--text-sm);max-width:100%}
+.toolbar input[type=search],.toolbar select,.field input:not([type=checkbox]):not([type=radio]),.field select{height:var(--control-h);padding:0 var(--space-2);border:1px solid var(--border-input);border-radius:var(--radius-sm);background:var(--surface);color:var(--text);font-size:var(--text-sm);max-width:100%}
 .toolbar input[type=search]{min-width:160px;flex:1 1 160px}
 .toolbar .showing{font:var(--weight-regular) var(--text-xs)/1 var(--font-mono);color:var(--text-3);margin-left:auto}
 .tablewrap{overflow-x:auto;border:1px solid var(--border);border-radius:var(--radius-md);background:var(--paper);box-shadow:var(--shadow-1)}
@@ -293,6 +293,9 @@ dialog table{font-size:var(--text-sm)}dialog td{padding:2px var(--space-3) 2px 0
    the bar (round-1 audits, 2026-09-16: the ring of <main> and most of a button sat behind it). A product whose sticky
    chrome is taller than the bar, or wraps, sets --sticky-top to its measured height. */
 html{scroll-padding-top:calc(var(--sticky-top,var(--topbar-h)) + var(--space-3))}
+/* Native checkboxes and radios take the palette's accent instead of the browser's blue (ruling 2026-09-16 20:11 Q4:
+   checked fill against its surface 4.55–16.17:1, tick against the fill 4.71–16.34:1 across the three palettes, light and dark). */
+:root{accent-color:var(--accent)}
 .topbar ::selection,.plate ::selection,.honest ::selection{background:var(--on-band-2);color:var(--band)}
 .honest-in{max-width:var(--content-max);margin:0 auto;display:grid;gap:var(--space-6);grid-template-columns:repeat(auto-fit,minmax(min(100%,250px),1fr))}
 .honest a{color:var(--on-band);text-decoration-color:var(--band-line)}
