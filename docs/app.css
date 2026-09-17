@@ -288,6 +288,10 @@ dialog table{font-size:var(--text-sm)}dialog td{padding:2px var(--space-3) 2px 0
   .topbar .btn-primary:hover,.plate .btn-primary:hover{background:var(--on-band-2);border-color:var(--on-band-2)}
 }
 .topbar :focus-visible,.plate :focus-visible,.honest :focus-visible{outline-color:var(--on-band)}
+/* Focus scrolls clear of the sticky top bar: a control reached by Tab, or <main> after the skip link, never lands under
+   the bar (round-1 audits, 2026-09-16: the ring of <main> and most of a button sat behind it). A product whose sticky
+   chrome is taller than the bar, or wraps, sets --sticky-top to its measured height. */
+html{scroll-padding-top:calc(var(--sticky-top,var(--topbar-h)) + var(--space-3))}
 .topbar ::selection,.plate ::selection,.honest ::selection{background:var(--on-band-2);color:var(--band)}
 .honest-in{max-width:var(--content-max);margin:0 auto;display:grid;gap:var(--space-6);grid-template-columns:repeat(auto-fit,minmax(min(100%,250px),1fr))}
 .honest a{color:var(--on-band);text-decoration-color:var(--band-line)}
