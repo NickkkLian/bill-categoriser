@@ -211,12 +211,19 @@ function toast(msg, { undo, ms, kind } = {}) {
   let t = setTimeout(() => { el.classList.add('leave'); setTimeout(() => el.remove(), 200); }, ms || (undo ? 8000 : 4000));
   el.addEventListener('mouseenter', () => clearTimeout(t)); el.addEventListener('mouseleave', () => { t = setTimeout(() => el.remove(), 3000); });
 }
+// A dialog settles on its own form's submit, its Cancel button, Esc or close, whichever comes first. Relying on the close event
+// alone left OK dead in Chrome after the dialog had once been closed with Esc: it fired no close event again (Callback Desk
+// round-1 audit, 2026-09-16; this helper is the same one).
 function dialog(title, body, { ok = 'OK', cancel = 'Cancel', danger = false } = {}) {
   return new Promise(res => {
-    const d = $('#dlg'); d.innerHTML = ''; const opener = document.activeElement;
+    const d = $('#dlg'); d.innerHTML = ''; const opener = document.activeElement, off = new AbortController(); let settled = false;
+    const settle = yes => { if (settled) return; settled = true; off.abort(); if (d.open) d.close(yes ? 'ok' : 'cancel'); res(yes); opener && opener.focus && opener.focus(); };
     const form = h('form', { method: 'dialog' }, h('h2', {}, title), typeof body === 'string' ? h('p', { class: 'muted' }, body) : body,
-      h('div', { class: 'acts' }, cancel && h('button', { class: 'btn', value: 'cancel', type: 'button', onclick: () => d.close('cancel') }, cancel), h('button', { class: 'btn ' + (danger ? 'btn-danger' : 'btn-primary'), value: 'ok', type: 'submit' }, ok)));
-    d.append(form); d.addEventListener('close', () => { res(d.returnValue === 'ok'); opener && opener.focus && opener.focus(); }, { once: true }); d.showModal();
+      h('div', { class: 'acts' }, cancel && h('button', { class: 'btn', value: 'cancel', type: 'button', onclick: () => settle(false) }, cancel), h('button', { class: 'btn ' + (danger ? 'btn-danger' : 'btn-primary'), value: 'ok', type: 'submit' }, ok)));
+    form.addEventListener('submit', e => { e.preventDefault(); settle(true); }, { signal: off.signal });
+    d.addEventListener('cancel', e => { e.preventDefault(); settle(false); }, { signal: off.signal });
+    d.addEventListener('close', () => settle(d.returnValue === 'ok'), { signal: off.signal });
+    d.append(form); d.showModal();
   });
 }
 function helpDialog() {
