@@ -87,7 +87,7 @@ kbd{display:inline-block;min-width:18px;padding:0 var(--space-1);border:1px soli
 .main{min-width:0;padding:var(--space-5) var(--gutter) var(--space-10)}
 .page-head{display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-2) var(--space-3);margin-bottom:var(--space-4)}
 .page-head h1{font-size:var(--text-xl);font-weight:var(--weight-semibold)}
-.page-head .sub{color:var(--text-2);font-size:var(--text-xs);flex-basis:100%}
+.page-head .sub{color:var(--text-2);font-size:var(--text-xs);flex-basis:100%;max-width:var(--measure)}
 .inspector{border-left:1px solid var(--border);background:var(--surface);position:sticky;top:var(--topbar-h);align-self:start;max-height:calc(100vh - var(--topbar-h));overflow:auto;display:flex;flex-direction:column}
 .no-inspector .inspector{display:none}
 .insp-head{display:flex;align-items:center;gap:var(--space-2);padding:var(--space-3) var(--space-4);border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--surface);z-index:1}
@@ -244,9 +244,9 @@ dialog table{font-size:var(--text-sm)}dialog td{padding:2px var(--space-3) 2px 0
 
 /* ===== footer (honest block) ===== */
 .honest{border-top:1px solid var(--band-line);font-size:var(--text-xs);color:var(--on-band-2);background:var(--band);padding:var(--space-10) var(--gutter) var(--space-12)}
-.honest dl{margin:0}
+.honest dl{margin-block:0}
 .honest dt{font-weight:var(--weight-semibold);color:var(--on-band);font-family:var(--font-sans);font-size:var(--text-2xs);letter-spacing:var(--tracking-caps);text-transform:uppercase;margin-bottom:var(--space-2)}
-.honest dd{margin:0;max-width:68ch;line-height:var(--leading-relaxed)}
+.honest dd{margin:0;max-width:var(--measure);line-height:var(--leading-relaxed)}
 
 /* ===== rules ===== */
 .rule-edit{display:flex;gap:var(--space-2);align-items:center;flex-wrap:wrap}

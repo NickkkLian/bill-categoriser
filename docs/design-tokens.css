@@ -147,7 +147,7 @@
   --tracking-caps:    0.09em;
   --tracking-display: -0.021em;  /* large Fraunces has to be tightened */
   --tracking-title:   -0.009em;
-  --measure: 66ch;               /* prose line length */
+  --measure: 33em;               /* prose line length, about 60–75 characters of Inter (em, not ch: 66ch ran 78–96) */
 
   /* ---- 10. Space / radius / shadow / motion / layers / layout ---- */
   --space-0-5: 0.125rem; --space-1: 0.25rem; --space-2: 0.5rem; --space-3: 0.75rem; --space-4: 1rem;
