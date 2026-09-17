@@ -631,8 +631,19 @@ function renderPage() {
   document.title = 'Bill Bench · ' + (NAV.find(n => n[0] === view) || ['', 'Overview'])[1];
   main.querySelectorAll('.row-flash').forEach(x => x.classList.remove('row-flash'));
 }
+// Arrow keys, Home and End move between the options of a radio group or tab list and pick the one they land on (WAI-ARIA)
+function roving(e) {
+  const opt = e.target.closest('[role="radio"], [role="tab"]'), group = opt && opt.closest('[role="radiogroup"], [role="tablist"]');
+  if (!group || e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return false;
+  const all = [...group.querySelectorAll('[role="radio"], [role="tab"]')].filter(b => !b.disabled), i = all.indexOf(opt);
+  const move = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }[e.key];
+  const next = move ? all[(i + move + all.length) % all.length] : e.key === 'Home' ? all[0] : e.key === 'End' ? all[all.length - 1] : null;
+  if (!next) return false;
+  e.preventDefault(); next.focus(); if (next !== opt) next.click(); return true;
+}
 function keyHandler(e) {
   const t = e.target; if (t.closest('input, select, textarea, [contenteditable]') || document.querySelector('dialog[open]')) return;
+  if (roving(e)) return;
   if (e.key === 'Enter' && t.closest('button, a[href], summary, [role="button"], [role="tab"]')) return;   // the control's own Enter, not a queue shortcut
   if (e.key === '?') { e.preventDefault(); helpDialog(); return; }
   if (e.key === 'Escape') { if ($('#nav').classList.contains('open')) { $('#nav').classList.remove('open'); return; } if (route().p.get('i')) { setParam('i', null); return; } }
