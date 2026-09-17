@@ -21,6 +21,7 @@ ul,ol{margin:0;padding:0;list-style:none}
 .sr-only{position:absolute;width:1px;height:1px;overflow:hidden;white-space:nowrap;clip-path:inset(50%)}
 .skip{position:absolute;left:var(--space-2);top:-48px;background:var(--surface);padding:var(--space-2) var(--space-3);border:1px solid var(--border-input);border-radius:var(--radius-sm);z-index:var(--z-toast)}
 .skip:focus{top:var(--space-2)}
+.skip:focus-visible{outline-color:var(--on-band)}   /* the link shows on top of the dark top bar, so its ring is drawn on the band */
 [hidden]{display:none!important}
 
 /* ===== topbar ===== */

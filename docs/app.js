@@ -664,6 +664,7 @@ async function init() {
   $('#sections').addEventListener('click', () => $('#nav').classList.toggle('open'));
   document.addEventListener('keydown', keyHandler);
   window.addEventListener('hashchange', render);
+  $('.skip').addEventListener('click', e => { e.preventDefault(); $('#main').focus(); });   // "#main" in the address would be read as a view
   let rt; window.addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(render, 150); });
   const saved = await DB.get('state');
   const url = new URLSearchParams(location.search);
