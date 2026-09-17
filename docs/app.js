@@ -349,7 +349,7 @@ async function doImport(file) {
     h('p', {}, res.strictErr ? 'Strict demo layout: ' + res.strictErr + '. ' : '', 'Header mapping: ', res.report && res.report.length ? res.report.map(r => `${r.sheet}: ` + (r.ok ? `ok (${r.headers.join(' / ')})` : `found ${r.headers.slice(0, 6).join(' / ') || 'no text'}, expected Date / Merchant / Amount`)).join('; ') : 'no sheets found'),
     h('div', { class: 'toolbar' }, h('button', { class: 'btn btn-primary', onclick: () => doSample(42) }, 'Load the sample'), h('a', { class: 'btn', href: 'https://github.com/NickkkLian/bill-categoriser#supported-layouts' }, 'Supported layouts'))));
 }
-async function clearAll() { if (!(await dialog('Clear all data?', 'Removes the loaded rows, your decisions and rules from this browser. Nothing was ever uploaded.', { ok: 'Clear', danger: true }))) return; S.rows = null; S.source = null; S.decisions = []; S.rules = { aliases: [], threshold: E.DEFAULT_HIGH_CENTS }; S.suggestions = {}; S.checks = null; invalidate(); await DB.clear(); go(''); toast('Cleared'); }
+async function clearAll() { if (!(await dialog('Clear all data?', 'Removes the loaded rows, your decisions and rules from this browser. Nothing was ever uploaded.', { ok: 'Clear', danger: true }))) return; S.rows = null; S.source = null; S.decisions = []; S.rules = { aliases: [], threshold: E.DEFAULT_HIGH_CENTS }; S.suggestions = {}; S.checks = null; invalidate(); await DB.clear(); if (route().view === '') render(); else go(''); toast('Cleared'); }   // on the import page the address does not change, so nothing redrew it
 
 function viewOverview(main, m) {
   const rec = m.reconciliation, rc = reasonCounts(m), flagged = m.records.filter(r => r.reasons.length).length, checks = S.checks || runChecks();
