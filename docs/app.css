@@ -79,6 +79,7 @@ kbd{display:inline-block;min-width:18px;padding:0 var(--space-1);border:1px soli
 .nav a .cnt{margin-left:auto;font:var(--weight-regular) var(--text-2xs)/1 var(--font-mono);color:var(--on-nav-2);font-variant-numeric:tabular-nums}
 .nav a .ico{width:16px;flex:none;color:var(--on-nav-2);font-family:var(--font-mono);font-size:var(--text-2xs);text-align:center}
 .nav .collapse{margin-top:var(--space-3);width:100%;justify-content:flex-start;gap:var(--space-2);padding:0 var(--space-2);color:var(--on-nav)}
+.nav :focus-visible{outline-color:var(--on-nav)}   /* controls in the navigation take text, ring and hover from the nav tokens, as the bands take theirs */
 .nav .ico svg{display:block}
 .keys{font:var(--weight-regular) var(--text-2xs)/1.8 var(--font-mono);color:var(--text-3)}
 .nav-collapsed .nav a span:not(.ico){display:none}
@@ -287,7 +288,6 @@ dialog table{font-size:var(--text-sm)}dialog td{padding:2px var(--space-3) 2px 0
   .topbar .btn-primary:hover,.plate .btn-primary:hover{background:var(--on-band-2);border-color:var(--on-band-2)}
 }
 .topbar :focus-visible,.plate :focus-visible,.honest :focus-visible{outline-color:var(--on-band)}
-.nav :focus-visible{outline-color:var(--on-nav)}   /* controls in the navigation take text, ring and hover from the nav tokens, as the bands take theirs */
 .topbar ::selection,.plate ::selection,.honest ::selection{background:var(--on-band-2);color:var(--band)}
 .honest-in{max-width:var(--content-max);margin:0 auto;display:grid;gap:var(--space-6);grid-template-columns:repeat(auto-fit,minmax(min(100%,250px),1fr))}
 .honest a{color:var(--on-band);text-decoration-color:var(--band-line)}
