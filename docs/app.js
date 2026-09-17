@@ -600,8 +600,10 @@ function focusKey(el) {
 function restoreFocus(find) {
   if (!find || (document.activeElement && document.activeElement !== document.body)) return;
   let el = find();
-  if (!el || !el.getClientRects().length) { el = $('#main h1'); if (el && !el.hasAttribute('tabindex')) el.setAttribute('tabindex', '-1'); }
-  if (el) { el.focus(); if (find.caret && el.setSelectionRange) try { el.setSelectionRange(find.caret[0], find.caret[1]); } catch (e) { /* not a text field */ } }
+  const heading = () => { for (const sel of ['#main h1', '#main h2', '#main']) { const x = [...document.querySelectorAll(sel)].find(y => { const r = y.getBoundingClientRect(); return r.width > 2 && r.height > 2; }); if (x) { if (!x.hasAttribute('tabindex')) x.setAttribute('tabindex', '-1'); return x; } } return null; };
+  if (!el || !el.getClientRects().length) el = heading();
+  if (el) { el.focus(); if (document.activeElement !== el && (el = heading())) el.focus(); }   // a disabled control does not take focus
+  if (el && find.caret && el.setSelectionRange) try { el.setSelectionRange(find.caret[0], find.caret[1]); } catch (e) { /* not a text field */ }
 }
 function render() {
   const active = document.activeElement, inQueue = !!(active && active.closest && active.closest('#queue'));
