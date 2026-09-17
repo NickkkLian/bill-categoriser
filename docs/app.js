@@ -1,6 +1,6 @@
 /* app.js — Bill Bench UI. Rules live in bills-engine.js (a verbatim port of demo.py); this file only does
-   import → state → views → export. No dependencies, no network except the optional model call — Claude, OpenAI, Gemini or an
-   OpenAI-compatible endpoint through llm.js (key in memory only). */
+   import → state → views → export. No dependencies; the only network requests are the web fonts and the optional model call —
+   Claude, OpenAI, Gemini or an OpenAI-compatible endpoint through llm.js (key in memory only). */
 (() => {
 'use strict';
 const E = window.BillsEngine;
