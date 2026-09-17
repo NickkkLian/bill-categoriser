@@ -574,11 +574,19 @@ function renderNav(view, m) {
 function focusKey(el) {
   if (!el || el === document.body || el === document.documentElement) return null;
   const scope = el.parentElement && el.parentElement.closest('[id]'), within = scope ? '#' + CSS.escape(scope.id) + ' ' : '', tag = el.tagName.toLowerCase();
-  const tries = ['id', 'data-id', 'data-key', 'data-sort', 'href', 'name'].filter(a => el.getAttribute(a)).map(a => within + tag + '[' + a + '="' + el.getAttribute(a).replace(/["\\]/g, '\\$&') + '"]');
-  // otherwise the same kind of control (tag and classes) at the same position: a row's Set button, or a toggle whose label flips
-  const kind = within + tag + (typeof el.className === 'string' && el.className.trim() ? '.' + el.className.trim().split(/\s+/).map(c => CSS.escape(c)).join('.') : '');
-  const index = [...document.querySelectorAll(kind)].indexOf(el);
-  const find = () => { for (const s of tries) { const x = document.querySelector(s); if (x) return x; } return index < 0 ? null : document.querySelectorAll(kind)[index] || null; };
+  const quote = v => '"' + v.replace(/["\\]/g, '\\$&') + '"';
+  const tries = ['id', 'data-id', 'data-key', 'data-sort', 'href', 'name'].filter(a => el.getAttribute(a)).map(a => within + tag + '[' + a + '=' + quote(el.getAttribute(a)) + ']');
+  const kind = tag + (typeof el.className === 'string' && el.className.trim() ? '.' + el.className.trim().split(/\s+/).map(c => CSS.escape(c)).join('.') : '');
+  // a control inside a record (an element with data-id, such as a table row) is looked for in that same record first, then in
+  // the record now at its place in the list (the next one moved up), and only then does focus go to the heading
+  const rec = el.parentElement && el.parentElement.closest('[data-id]'), recs = rec ? within + rec.tagName.toLowerCase() + '[data-id]' : null;
+  const recId = rec && rec.getAttribute('data-id'), recAt = rec ? [...document.querySelectorAll(recs)].indexOf(rec) : -1, inRec = rec ? [...rec.querySelectorAll(kind)].indexOf(el) : -1;
+  const index = [...document.querySelectorAll(within + kind)].indexOf(el);
+  const find = () => {
+    for (const s of tries) { const x = document.querySelector(s); if (x) return x; }
+    if (rec) { const r = document.querySelector(within + rec.tagName.toLowerCase() + '[data-id=' + quote(recId) + ']') || document.querySelectorAll(recs)[recAt]; return r ? r.querySelectorAll(kind)[inRec] || null : null; }
+    return index < 0 ? null : document.querySelectorAll(within + kind)[index] || null;
+  };
   find.caret = typeof el.selectionStart === 'number' ? [el.selectionStart, el.selectionEnd] : null;   // a text field keeps its caret
   return find;
 }
@@ -589,11 +597,15 @@ function restoreFocus(find) {
   if (el) { el.focus(); if (find.caret && el.setSelectionRange) try { el.setSelectionRange(find.caret[0], find.caret[1]); } catch (e) { /* not a text field */ } }
 }
 function render() {
-  const find = focusKey(document.activeElement); renderPage();
+  const active = document.activeElement, inQueue = !!(active && active.closest && active.closest('#queue'));
+  const find = focusKey(active); renderPage();
   // one primary button per screen (v1 §9.1): the top-bar "Start review" steps aside where the page shows its own
   // (the overview plate, the review inspector, Export, the landing page's load button)
   if ([...document.querySelectorAll('#main .btn-primary, #inspector .btn-primary')].some(b => b.getClientRects().length)) $('#primary-action').hidden = true;
-  restoreFocus(find);
+  // the review queue moves its own selection (auto-advance after a, c, d or x): focus in the queue follows the selected row,
+  // as j and k already do, so the ring never sits on a row the next shortcut will not act on (designer ruling 2026-09-16 17:05 Q4)
+  const selected = inQueue && $('#queue li[aria-selected="true"]');
+  if (selected) selected.focus(); else restoreFocus(find);
 }
 function renderPage() {
   const { view, p } = route(); const main = $('#main'); main.innerHTML = '';
