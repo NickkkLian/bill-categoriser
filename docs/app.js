@@ -202,12 +202,16 @@ const go = (view, params = {}) => { const p = new URLSearchParams(); for (const 
 const setParam = (k, v) => { const r = route(); const o = Object.fromEntries(r.p); if (v === null || v === undefined || v === '') delete o[k]; else o[k] = v; go(r.view, o); };
 
 /* ---------- toasts / dialogs ---------- */
-function toast(msg, { undo, ms, kind } = {}) {
+// `action` ({ label, run }) puts the way to fix an error in the toast; a toast with an action stays until it is dismissed, so
+// the fix is not put somewhere that expires (ruling 2026-09-16 20:11 Q8, form B)
+function toast(msg, { undo, ms, kind, action } = {}) {
   const box = $('#toasts'); const el = h('div', { class: 'toast enter', role: kind === 'error' ? 'alert' : 'status' }, h('span', {}, msg));
   if (undo) el.append(h('button', { class: 'btn btn-sm', onclick: () => { undo(); el.remove(); } }, 'Undo'));
+  if (action) el.append(h('button', { class: 'btn btn-sm', onclick: () => { const to = action.focus && action.focus(); if (to) to.focus(); el.remove(); action.run(); } }, action.label));   // focus moves before the toast goes
   el.append(h('button', { class: 'btn btn-ghost btn-sm', 'aria-label': 'Dismiss', onclick: () => el.remove() }, '×'));
   box.append(el); requestAnimationFrame(() => el.classList.remove('enter'));
   while (box.children.length > 3) box.firstChild.remove();
+  if (action) return;
   let t = setTimeout(() => { el.classList.add('leave'); setTimeout(() => el.remove(), 200); }, ms || (undo ? 8000 : 4000));
   el.addEventListener('mouseenter', () => clearTimeout(t)); el.addEventListener('mouseleave', () => { t = setTimeout(() => el.remove(), 3000); });
 }
@@ -506,7 +510,7 @@ function viewRules(main, m) {
       h('div', { class: 'toolbar' }, h('button', { class: 'btn btn-primary', onclick: () => { S.rules = { aliases: pend.aliases, threshold: pend.threshold }; S.pending = null; invalidate(); persist(); render(); toast('Rules applied'); } }, 'Apply changes'), h('button', { class: 'btn', onclick: () => { S.pending = null; render(); } }, 'Discard'))));
   }
 }
-function importRules() { const input = h('input', { type: 'file', accept: '.json', onchange: async e => { try { const j = JSON.parse(await e.target.files[0].text()); const aliases = (j.aliases || []).filter(x => x.alias && [...CATEGORIES, 'Uncategorised'].includes(x.category)).map(x => ({ id: uid(), alias: String(x.alias), category: x.category, who: 'you', at: nowIso() })); S.pending = { aliases, threshold: j.high_cad ? Math.round(j.high_cad * 100) : S.rules.threshold, dirty: true }; render(); toast(`Imported ${aliases.length} rules — review the pending changes`); } catch (err) { toast('Could not read rules JSON: ' + err.message, { kind: 'error' }); } } }); input.click(); }
+function importRules() { const input = h('input', { type: 'file', accept: '.json', onchange: async e => { const file = e.target.files[0]; try { const j = JSON.parse(await file.text()); const aliases = (j.aliases || []).filter(x => x.alias && [...CATEGORIES, 'Uncategorised'].includes(x.category)).map(x => ({ id: uid(), alias: String(x.alias), category: x.category, who: 'you', at: nowIso() })); S.pending = { aliases, threshold: j.high_cad ? Math.round(j.high_cad * 100) : S.rules.threshold, dirty: true }; render(); toast(`Imported ${plural(aliases.length, 'rule')} — review the pending changes`); } catch (err) { toast(`Could not read ${file ? file.name : 'that file'}: it is not the JSON that Export rules writes. Nothing was changed.`, { kind: 'error', action: { label: 'Choose another file', run: importRules, focus: () => [...document.querySelectorAll('#main button')].find(b => b.textContent === 'Import rules JSON') } }); } } }); input.click(); }
 
 function svgBars(data, { height = 180, unknownKeys = [] } = {}) { // vertical bars, one hue; labels below; values on top
   const W = 600, pad = 28, n = data.length, bw = (W - pad * 2) / n, max = Math.max(1, ...data.map(d => Math.abs(d.v)));
