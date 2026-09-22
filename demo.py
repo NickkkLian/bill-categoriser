@@ -45,18 +45,22 @@ def validate_cache(cache):
         assert e.get('category') is None or e['category'] in CATEGORIES,'llm-cache: category outside the allowed set for '+k
         assert e.get('confidence') is None or 0<=float(e['confidence'])<=1,'llm-cache: confidence outside 0..1 for '+k
     if cache['entries']:assert cache.get('model') and cache.get('generated') and cache.get('provider') in llm.PROVIDERS,'llm-cache: provider, model and generated date required'
+BATCH=12  # merchants per call: each answer carries a merchant, a category, a confidence and a short reason, and
+          # thirty of them overran the 2048-token reply budget on 2026-09-22 — the array was cut off mid-string
 def ask_llm(merchants):
-    """One call to whichever provider LLM_PROVIDER names (see llm.py). Returns ({norm: entry}, model, provider).
-    Any failure raises; callers fall back to Uncategorised."""
+    """One call per batch of merchants to whichever provider LLM_PROVIDER names (see llm.py).
+    Returns ({norm: entry}, model, provider). Any failure raises; callers fall back to Uncategorised."""
     cfg=llm.config_from_env()
     system=('You classify small-business bill merchants into exactly one of these categories: '+', '.join(CATEGORIES)+'. If the name gives no reliable signal, use null. Reply with JSON only: an array of {"merchant": string, "category": string|null, "confidence": number 0-1, "reason": short string}. Never invent facts about the merchant.')
-    text,model=llm.complete(cfg,system,json.dumps([{'merchant':m} for m in merchants]))
-    out={}
-    for x in llm.extract_json(text,'array'):
-        if not isinstance(x,dict) or not isinstance(x.get('merchant'),str):continue
-        cat=x.get('category') if x.get('category') in CATEGORIES else None
-        conf=x.get('confidence');conf=float(conf) if isinstance(conf,(int,float)) and 0<=conf<=1 else None
-        out[norm(x['merchant'])]={'merchant':x['merchant'],'category':cat,'confidence':conf,'reason':str(x.get('reason',''))[:140]}
+    out={};model=None
+    for i in range(0,len(merchants),BATCH):
+        chunk=merchants[i:i+BATCH]
+        text,model=llm.complete(cfg,system,json.dumps([{'merchant':m} for m in chunk]))
+        for x in llm.extract_json(text,'array'):
+            if not isinstance(x,dict) or not isinstance(x.get('merchant'),str):continue
+            cat=x.get('category') if x.get('category') in CATEGORIES else None
+            conf=x.get('confidence');conf=float(conf) if isinstance(conf,(int,float)) and 0<=conf<=1 else None
+            out[norm(x['merchant'])]={'merchant':x['merchant'],'category':cat,'confidence':conf,'reason':str(x.get('reason',''))[:140]}
     return out,model,cfg['provider']
 def llm_fill(merchants,cache):
     """Fill cache entries for merchants not yet cached. Returns (added, error)."""

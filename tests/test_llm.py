@@ -169,6 +169,22 @@ class TestExtractJson(unittest.TestCase):
         with self.assertRaises(ValueError):
             llm.extract_json("I cannot help with that.")
 
+    def test_a_reply_cut_off_mid_array_says_so(self):
+        """The real 2026-09-22 failure: thirty merchants in one call, the array cut mid-string by the output limit.
+
+        Saying 'no JSON array' for this points the reader at the parser, which is not where the fix is."""
+        cut = ('[ {"merchant": "Northwind Office Supplies", "category": "Supplies", "confidence": 0.9, '
+               '"reason": "Name explicitly says office supplies"}, {"merchant": "Paperclip Stationers Ltd", '
+               '"category": "Suppl')
+        with self.assertRaises(ValueError) as caught:
+            llm.extract_json(cut)
+        message = str(caught.exception)
+        self.assertIn("never closes it", message)
+        self.assertIn("cut off by the output limit", message)
+        self.assertIn(str(len(cut)), message)          # the length is how you tell truncation from a refusal
+        # the same array, closed, parses — so it is the truncation and not the spacing or the newlines
+        self.assertEqual(len(llm.extract_json(cut[:cut.index(', {"merchant": "Paperclip')] + ' ]')), 1)
+
     def test_a_failed_extraction_says_what_came_back_instead(self):
         """The reply is the evidence: without it the only way to learn what the model said is another paid call."""
         with self.assertRaises(ValueError) as caught:

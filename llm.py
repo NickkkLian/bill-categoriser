@@ -169,6 +169,13 @@ def extract_json(text, kind="array"):
                     except json.JSONDecodeError:
                         break
         start = cleaned.find(opener, start + 1)
+    # An opener with no matching closer is a reply that stopped mid-way — almost always the output limit.
+    # Saying "no JSON array" for that sends the reader looking at the parser; saying it was cut off sends
+    # them at max_tokens, which is where the fix is (2026-09-22: thirty merchants in one call, 2048 tokens).
+    if cleaned.find(opener) != -1:
+        raise ValueError(f"the model reply opens a JSON {kind} and never closes it — {len(text)} characters, "
+                         f"so it was almost certainly cut off by the output limit. Ask for fewer items per call "
+                         f"or raise max_tokens. The reply began: {_excerpt(text)}")
     raise ValueError(f"no JSON {kind} in the model reply — the reply was: {_excerpt(text)}")
 
 
