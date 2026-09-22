@@ -144,6 +144,7 @@ def extract_json(text, kind="array"):
     to prefer between them, and picking by position is at least predictable."""
     opener, closer = ("[", "]") if kind == "array" else ("{", "}")
     cleaned = re.sub(r"```(?:json)?", "", text)
+    unclosed = False
     start = cleaned.find(opener)
     while start != -1:
         depth, in_str, esc = 0, False, False
@@ -168,11 +169,16 @@ def extract_json(text, kind="array"):
                         return json.loads(cleaned[start:i + 1])
                     except json.JSONDecodeError:
                         break
+        else:
+            unclosed = unclosed or depth > 0   # ran off the end of the text with brackets still open
         start = cleaned.find(opener, start + 1)
-    # An opener with no matching closer is a reply that stopped mid-way — almost always the output limit.
-    # Saying "no JSON array" for that sends the reader looking at the parser; saying it was cut off sends
-    # them at max_tokens, which is where the fix is (2026-09-22: thirty merchants in one call, 2048 tokens).
-    if cleaned.find(opener) != -1:
+    # An opener whose depth never came back to zero is a reply that stopped mid-way — almost always the output
+    # limit. Saying "no JSON array" for that sends the reader to the parser; saying it was cut off sends them to
+    # max_tokens, which is where the fix is (2026-09-22: thirty merchants in one call, 2048 tokens).
+    # The condition is "left open", not "a bracket exists": a refusal that happens to contain one —
+    # "I cannot help [see policy] with that." — closes it, and the first version of this branch answered that
+    # 37-character reply with "almost certainly cut off by the output limit" (found by an auditor the same day).
+    if unclosed:
         raise ValueError(f"the model reply opens a JSON {kind} and never closes it — {len(text)} characters, "
                          f"so it was almost certainly cut off by the output limit. Ask for fewer items per call "
                          f"or raise max_tokens. The reply began: {_excerpt(text)}")

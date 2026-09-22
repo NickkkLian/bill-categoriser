@@ -185,6 +185,25 @@ class TestExtractJson(unittest.TestCase):
         # the same array, closed, parses — so it is the truncation and not the spacing or the newlines
         self.assertEqual(len(llm.extract_json(cut[:cut.index(', {"merchant": "Paperclip')] + ' ]')), 1)
 
+    def test_a_refusal_with_a_bracket_in_it_is_not_a_truncation(self):
+        """A refusal often carries a bracket, and a bracket is not an unclosed array.
+
+        The first version of the truncation branch asked whether the reply contained an opener at all, so it
+        answered a 37-character refusal with "almost certainly cut off by the output limit" — which is the one
+        message guaranteed to send the reader to the wrong place."""
+        for reply in ("I cannot help [see policy] with that.",
+                      "Sorry, the answer is [redacted].",
+                      "Categories are [Supplies, Utilities]; I will not guess."):
+            with self.assertRaises(ValueError) as caught:
+                llm.extract_json(reply)
+            message = str(caught.exception)
+            self.assertIn("no JSON array", message, reply)
+            self.assertNotIn("cut off", message, reply)
+        # and something genuinely left open still reads as truncated
+        with self.assertRaises(ValueError) as caught:
+            llm.extract_json("Here it is: [oops")
+        self.assertIn("never closes it", str(caught.exception))
+
     def test_a_failed_extraction_says_what_came_back_instead(self):
         """The reply is the evidence: without it the only way to learn what the model said is another paid call."""
         with self.assertRaises(ValueError) as caught:
@@ -192,6 +211,8 @@ class TestExtractJson(unittest.TestCase):
         self.assertIn("I cannot help with that.", str(caught.exception))
         with self.assertRaises(ValueError) as caught:
             llm.extract_json("no json here, key ghp_ABCDEF1234 quoted back")
+        # deliberately too short to be a real token: the privacy gate flags ghp_ only from twenty characters,
+        # and a fixture that trips it would leave that gate red for this repository for ever
         self.assertIn("ghp_…", str(caught.exception))
         self.assertNotIn("ABCDEF1234", str(caught.exception))
 
