@@ -89,7 +89,7 @@ python3 -B demo.py eval
 
 `break` runs three mutations in disposable copies and requires the real checker to reject each: a deleted Bills row, a changed threshold default that produces 92 review rows instead of 39, and a cache entry with a category outside the allowed set. It exits 0 only after observing all three failures; your delivered files stay intact.
 
-`eval` scores the optional LLM categoriser on `eval/merchants.json`: 30 synthetic merchant names, 20 that carry an obvious keyword and 10 that need inference. It prints the keyword baseline (19/30 by construction) next to the cached model output and passes at 80% accuracy. Until a maintainer has run `ANTHROPIC_API_KEY=... python3 -B demo.py eval --llm` once, it reports **NOT RUN** (exit code 2) rather than a made-up number. This is a small evaluation set, not a formal evaluation pipeline.
+`eval` scores the optional LLM categoriser on `eval/merchants.json`: 30 synthetic merchant names, 20 that carry an obvious keyword and 10 that need inference. It prints the keyword baseline next to the cached model output and passes at 80% accuracy. That run has been made: 2026-09-22, `claude-sonnet-5`, **30 of 30**, against a keyword baseline of 19 of 30. Read the gap as what the set was built to show rather than as a general result: the ten inference names are exactly the ones the keyword list cannot reach, so its 19 is by construction, and a set of thirty names is far too small to say how much better a model is in general. Without the cache the eval reports **NOT RUN** (exit code 2) rather than a made-up number.
 
 For another synthetic dataset:
 
@@ -115,6 +115,8 @@ node docs/check-web.mjs
 
 `python3 -B demo.py build --llm` asks a model about each `Uncategorised` merchant and writes `output/llm-suggestions.json` with `category / confidence / reason`; answers are cached in `docs/llm-cache.json` with the provider, model and date, keyed by normalised merchant name, so later builds and the browser page work offline. The ledger and workbook never change: the step is advisory by design, and `check` asserts that. Any failure — no key, no model id, timeout, malformed reply, a category outside the allowed set — falls back to `Uncategorised` without stopping the build.
 
+The delivered `output/llm-suggestions.json` is that step's real output on this dataset, from the same 2026-09-22 run: the seed-42 demo leaves 20 rows uncategorised under two merchant names, `=SYNTHETIC_FORMULA_TEXT()` and `Demo Other 06`, and the model returned no category for either — a formula string and a placeholder are not merchants. A file of refusals is the honest result here, and it is also the case worth seeing: the step is allowed to decline.
+
 The model is your choice. Claude is the default, not a requirement:
 
 ```sh
@@ -128,7 +130,7 @@ Only Claude has a default model id; for the others you name one from your provid
 
 | Provider | How to select it | What has been run |
 |---|---|---|
-| Claude (Anthropic) | default · `ANTHROPIC_API_KEY` | Request and reply format checked against a local mock of the documented API: end to end from the CLI (`tests/test_demo_llm.py`) and through the page's own adapter `docs/llm.js` in Node (`node docs/check-llm.mjs`, including the header Anthropic requires for calls from a page). **Not yet run against the live API** — `docs/llm-cache.json` does not exist until a maintainer runs it with a key. |
+| Claude (Anthropic) | default · `ANTHROPIC_API_KEY` | Request and reply format checked against a local mock of the documented API: end to end from the CLI (`tests/test_demo_llm.py`) and through the page's own adapter `docs/llm.js` in Node (`node docs/check-llm.mjs`, including the header Anthropic requires for calls from a page). **Run against the live API once**, 2026-09-22 with `claude-sonnet-5`: 30 of 30 on the evaluation set, and the cache that run produced is `docs/llm-cache.json`. |
 | OpenAI | `LLM_PROVIDER=openai` · `OPENAI_API_KEY` · `LLM_MODEL` | Format checked against a local mock, from the CLI and through `docs/llm.js` (sends `max_completion_tokens`, no `temperature`). Should work per OpenAI's documentation; **not run against the live API.** |
 | Google Gemini | `LLM_PROVIDER=gemini` · `GEMINI_API_KEY` · `LLM_MODEL` | Format checked against a local mock, from the CLI and through `docs/llm.js` (key in the `x-goog-api-key` header). Should work per Google's documentation; **not run against the live API.** |
 | OpenAI-compatible | `LLM_PROVIDER=openai-compatible` · `LLM_BASE_URL` · `LLM_MODEL` · optional `LLM_API_KEY` | Format checked against a local mock, from the CLI and through `docs/llm.js` (no key, no `Authorization` header). **Not run against a real Ollama, LM Studio or vLLM server.** A server called from the page must allow its origin (Ollama: `OLLAMA_ORIGINS`). |
@@ -154,7 +156,7 @@ This is not a general Excel migration tool and not an accounting system. It does
 demo.py                 CLI: build / check / break / eval (Python 3.9+, standard library only)
 xlsx_io.py              minimal OOXML reader and template filler
 templates/              pre-formatted input and output workbook templates
-output/                 delivered artefacts for seed 42 (input, ledger, workbook)
+output/                 delivered artefacts for seed 42 (input, ledger, workbook, LLM suggestions)
 eval/merchants.json     30 synthetic merchants → expected category
 docs/index.html         the browser app (GitHub Pages root)
 docs/bills-engine.js    the rules, ported one for one from demo.py

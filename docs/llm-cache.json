@@ -1,0 +1,199 @@
+{
+  "entries": {
+    "aquaflowmunicipalbilling": {
+      "category": "Utilities",
+      "confidence": 0.85,
+      "merchant": "Aquaflow Municipal Billing",
+      "reason": "Aquaflow and municipal billing suggest water utility"
+    },
+    "baylineshipping": {
+      "category": "Transport",
+      "confidence": 0.85,
+      "merchant": "Bayline Shipping",
+      "reason": "Contains 'Shipping'"
+    },
+    "bluehillfibreinternet": {
+      "category": "Utilities",
+      "confidence": 0.85,
+      "merchant": "Bluehill Fibre Internet",
+      "reason": "Internet service is typically classified as utility"
+    },
+    "brickstonepremises": {
+      "category": "Rent",
+      "confidence": 0.75,
+      "merchant": "Brickstone Premises",
+      "reason": "'Premises' directly implies a physical rented property"
+    },
+    "bytecraftstudio": {
+      "category": "Software",
+      "confidence": 0.55,
+      "merchant": "Bytecraft Studio",
+      "reason": "'Byte' implies tech/software, though 'Studio' is ambiguous"
+    },
+    "cedarcourierexpress": {
+      "category": "Transport",
+      "confidence": 0.9,
+      "merchant": "Cedar Courier Express",
+      "reason": "Contains 'Courier Express'"
+    },
+    "demoother06": {
+      "category": null,
+      "confidence": 0.95,
+      "merchant": "Demo Other 06",
+      "reason": "Generic placeholder name with no category signal"
+    },
+    "eastgatelandlordtrust": {
+      "category": "Rent",
+      "confidence": 0.85,
+      "merchant": "Eastgate Landlord Trust",
+      "reason": "Contains 'Landlord'"
+    },
+    "granitepropertylease": {
+      "category": "Rent",
+      "confidence": 0.9,
+      "merchant": "Granite Property Lease",
+      "reason": "Contains 'Lease' and 'Property'"
+    },
+    "harbourpackagingsupply": {
+      "category": "Supplies",
+      "confidence": 0.85,
+      "merchant": "Harbour Packaging Supply",
+      "reason": "Name includes 'Supply' for packaging materials"
+    },
+    "harbourviewrealtyrent": {
+      "category": "Rent",
+      "confidence": 0.95,
+      "merchant": "Harbourview Realty Rent",
+      "reason": "Explicit 'Rent' with 'Realty'"
+    },
+    "inkwellbinder": {
+      "category": "Supplies",
+      "confidence": 0.7,
+      "merchant": "Inkwell & Binder",
+      "reason": "Names suggest office/stationery supplies"
+    },
+    "kernelforgelabs": {
+      "category": "Software",
+      "confidence": 0.65,
+      "merchant": "Kernel Forge Labs",
+      "reason": "'Kernel' and 'Labs' strongly suggest software/tech development"
+    },
+    "kestrelfreightco": {
+      "category": "Transport",
+      "confidence": 0.85,
+      "merchant": "Kestrel Freight Co",
+      "reason": "Contains 'Freight'"
+    },
+    "lakeshorewaterservices": {
+      "category": "Utilities",
+      "confidence": 0.9,
+      "merchant": "Lakeshore Water Services",
+      "reason": "Water services indicate utility provider"
+    },
+    "lastmilerunners": {
+      "category": "Transport",
+      "confidence": 0.75,
+      "merchant": "Last Mile Runners",
+      "reason": "'Last Mile' is a common delivery/logistics term"
+    },
+    "ledgerlinesaas": {
+      "category": "Software",
+      "confidence": 0.9,
+      "merchant": "Ledgerline SaaS",
+      "reason": "SaaS indicates software service"
+    },
+    "lumengridco": {
+      "category": "Utilities",
+      "confidence": 0.8,
+      "merchant": "Lumen Grid Co",
+      "reason": "Lumen/Grid suggest electricity utility"
+    },
+    "maplehydroutility": {
+      "category": "Utilities",
+      "confidence": 0.95,
+      "merchant": "Maple Hydro Utility",
+      "reason": "Explicitly named 'Utility' and 'Hydro'"
+    },
+    "nimbushostinginc": {
+      "category": "Software",
+      "confidence": 0.8,
+      "merchant": "Nimbus Hosting Inc",
+      "reason": "Hosting services are typically software-related"
+    },
+    "northernhaulagelogistics": {
+      "category": "Transport",
+      "confidence": 0.9,
+      "merchant": "Northern Haulage Logistics",
+      "reason": "Contains 'Haulage Logistics'"
+    },
+    "northwindofficesupplies": {
+      "category": "Supplies",
+      "confidence": 0.9,
+      "merchant": "Northwind Office Supplies",
+      "reason": "Name includes 'Office Supplies'"
+    },
+    "orbitcloudsoftware": {
+      "category": "Software",
+      "confidence": 0.9,
+      "merchant": "Orbit Cloud Software",
+      "reason": "Explicitly named 'Software'"
+    },
+    "palletaxle": {
+      "category": "Transport",
+      "confidence": 0.65,
+      "merchant": "Pallet & Axle",
+      "reason": "'Pallet' and 'Axle' evoke logistics/freight equipment"
+    },
+    "paperclipstationersltd": {
+      "category": "Supplies",
+      "confidence": 0.85,
+      "merchant": "Paperclip Stationers Ltd",
+      "reason": "Stationers sell office supplies"
+    },
+    "prairiegascoop": {
+      "category": "Utilities",
+      "confidence": 0.9,
+      "merchant": "Prairie Gas Co-op",
+      "reason": "Gas co-op indicates utility provider"
+    },
+    "quillledgerstationers": {
+      "category": "Supplies",
+      "confidence": 0.85,
+      "merchant": "Quill & Ledger Stationers",
+      "reason": "Stationers indicate office supplies"
+    },
+    "redwoodapplicensing": {
+      "category": "Software",
+      "confidence": 0.9,
+      "merchant": "Redwood App Licensing",
+      "reason": "App licensing indicates software product"
+    },
+    "summitplazaleasing": {
+      "category": "Rent",
+      "confidence": 0.9,
+      "merchant": "Summit Plaza Leasing",
+      "reason": "Contains 'Leasing'"
+    },
+    "syntheticformulatext": {
+      "category": null,
+      "confidence": 0.98,
+      "merchant": "=SYNTHETIC_FORMULA_TEXT()",
+      "reason": "Formula-like text, not a real merchant name"
+    },
+    "tonerdepot": {
+      "category": "Supplies",
+      "confidence": 0.85,
+      "merchant": "Toner Depot",
+      "reason": "Toner indicates office supplies retailer"
+    },
+    "unit4boccupancy": {
+      "category": "Rent",
+      "confidence": 0.75,
+      "merchant": "Unit 4B Occupancy",
+      "reason": "'Unit' and 'Occupancy' indicate property/space rental"
+    }
+  },
+  "generated": "2026-09-22",
+  "model": "claude-sonnet-5",
+  "provider": "anthropic"
+}

@@ -1,0 +1,19 @@
+{
+  "generated": "2026-09-22",
+  "model": "claude-sonnet-5",
+  "provider": "anthropic",
+  "suggestions": {
+    "=SYNTHETIC_FORMULA_TEXT()": {
+      "category": null,
+      "confidence": 0.98,
+      "merchant": "=SYNTHETIC_FORMULA_TEXT()",
+      "reason": "Formula-like text, not a real merchant name"
+    },
+    "Demo Other 06": {
+      "category": null,
+      "confidence": 0.95,
+      "merchant": "Demo Other 06",
+      "reason": "Generic placeholder name with no category signal"
+    }
+  }
+}
