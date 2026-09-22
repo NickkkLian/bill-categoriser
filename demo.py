@@ -264,7 +264,8 @@ def build(dest,seed=42,high_cents=DEFAULT_HIGH_CENTS,use_llm=False):
         else:
             if added:save_cache(cache)
             sug=llm_suggestions(model);dump(dest/'llm-suggestions.json',sug)
-            print(f'LLM suggestions for {len(sug["suggestions"])} uncategorised merchants written to llm-suggestions.json (advisory; ledger unchanged; {sug["provider"]} · {sug["model"]})')
+            where=f'{added} asked of the model, {len(sug["suggestions"])-added} from the cache' if added else 'all from the cache, no call made'
+            print(f'LLM suggestions for {len(sug["suggestions"])} uncategorised merchants written to llm-suggestions.json ({where}; advisory; ledger unchanged; {sug["provider"]} · {sug["model"]})')
     return model
 def normal(value):
     if isinstance(value,dt.date):return (value-dt.date(1899,12,30)).days

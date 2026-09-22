@@ -4,7 +4,9 @@ Proves the wiring rather than the adapter alone: the provider named by LLM_PROVI
 records provider and model, every uncategorised merchant gets an entry, and the ledger is byte-identical to a build
 without the model (suggestions stay advisory). The repo's own docs/llm-cache.json is never touched.
 """
+import contextlib
 import http.server
+import io
 import json
 import os
 import shutil
@@ -101,6 +103,30 @@ class TestBuildWithEachProvider(unittest.TestCase):
 
     def test_openai_compatible(self):
         self.run_provider("openai-compatible", {"LLM_MODEL": "llama-local"}, "/chat/completions", "openai-mock")
+
+    def test_second_build_is_offline(self):
+        """A cache that already covers every uncategorised merchant means no call and no key — what the README promises."""
+        cache = os.path.join(self.tmp, "cache-offline.json")
+        env = {"LLM_PROVIDER": "anthropic", "LLM_BASE_URL": self.base, "ANTHROPIC_API_KEY": "k"}
+        EchoMock.calls.clear()
+        with mock.patch.dict(os.environ, env, clear=False), mock.patch.object(demo, "LLM_CACHE", demo.Path(cache)):
+            first = io.StringIO()
+            with contextlib.redirect_stdout(first):
+                demo.build(os.path.join(self.tmp, "offline-1"), use_llm=True)
+        self.assertEqual(len(EchoMock.calls), 1, "the first build fills the cache from the model")
+        self.assertIn("asked of the model", first.getvalue())
+
+        EchoMock.calls.clear()
+        offline = {k: v for k, v in env.items() if k != "ANTHROPIC_API_KEY"}
+        with mock.patch.dict(os.environ, offline, clear=False), mock.patch.object(demo, "LLM_CACHE", demo.Path(cache)):
+            os.environ.pop("ANTHROPIC_API_KEY", None)
+            second = io.StringIO()
+            with contextlib.redirect_stdout(second):
+                demo.build(os.path.join(self.tmp, "offline-2"), use_llm=True)
+        self.assertEqual(EchoMock.calls, [], "nothing may be sent when the cache already answers")
+        self.assertIn("all from the cache, no call made", second.getvalue())
+        with open(os.path.join(self.tmp, "offline-2", "llm-suggestions.json"), encoding="utf-8") as f:
+            self.assertTrue(json.load(f)["suggestions"], "and the suggestions are still written")
 
     def test_repo_cache_untouched(self):
         self.assertFalse(os.path.exists(os.path.join(ROOT, "docs", "llm-cache.json")) and

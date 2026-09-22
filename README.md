@@ -113,7 +113,7 @@ node docs/check-web.mjs
 
 ### The optional LLM step
 
-`python3 -B demo.py build --llm` asks a model about each `Uncategorised` merchant and writes `output/llm-suggestions.json` with `category / confidence / reason`; answers are cached in `docs/llm-cache.json` with the provider, model and date, keyed by normalised merchant name, so later builds and the browser page work offline. The ledger and workbook never change: the step is advisory by design, and `check` asserts that. Any failure — no key, no model id, timeout, malformed reply, a category outside the allowed set — falls back to `Uncategorised` without stopping the build.
+`python3 -B demo.py build --llm` asks a model about each `Uncategorised` merchant and writes `output/llm-suggestions.json` with `category / confidence / reason`; answers are cached in `docs/llm-cache.json` with the provider, model and date, keyed by normalised merchant name, so later builds and the browser page work offline. Since that cache ships with the repository, running the command below on the delivered dataset sends nothing and needs no key — the line it prints says whether the answers were asked of the model or read from the cache, so the two are never confused. The ledger and workbook never change: the step is advisory by design, and `check` asserts that. Any failure — no key, no model id, timeout, malformed reply, a category outside the allowed set — falls back to `Uncategorised` without stopping the build.
 
 The delivered `output/llm-suggestions.json` is that step's real output on this dataset, from the same 2026-09-22 run: the seed-42 demo leaves 20 rows uncategorised under two merchant names, `=SYNTHETIC_FORMULA_TEXT()` and `Demo Other 06`, and the model returned no category for either — a formula string and a placeholder are not merchants. A file of refusals is the honest result here, and it is also the case worth seeing: the step is allowed to decline.
 
@@ -121,9 +121,9 @@ The model is your choice. Claude is the default, not a requirement:
 
 ```sh
 ANTHROPIC_API_KEY=... python3 -B demo.py build --llm                                    # Claude, claude-sonnet-5
-LLM_PROVIDER=openai OPENAI_API_KEY=... LLM_MODEL=<model id> python3 -B demo.py build --llm
-LLM_PROVIDER=gemini GEMINI_API_KEY=... LLM_MODEL=<model id> python3 -B demo.py build --llm
-LLM_PROVIDER=openai-compatible LLM_BASE_URL=http://localhost:11434/v1 LLM_MODEL=<model> python3 -B demo.py build --llm   # Ollama, LM Studio, vLLM…
+LLM_PROVIDER=openai OPENAI_API_KEY=... LLM_MODEL=your-model-id python3 -B demo.py build --llm
+LLM_PROVIDER=gemini GEMINI_API_KEY=... LLM_MODEL=your-model-id python3 -B demo.py build --llm
+LLM_PROVIDER=openai-compatible LLM_BASE_URL=http://localhost:11434/v1 LLM_MODEL=your-model-id python3 -B demo.py build --llm   # Ollama, LM Studio, vLLM…
 ```
 
 Only Claude has a default model id; for the others you name one from your provider's list, so nothing here goes stale when a vendor renames its models. `llm.py` (CLI) and `docs/llm.js` (browser) are the same small adapter in two languages, with no SDKs. They use nothing provider-specific as a precondition — no tool calling, JSON mode or response schemas. The prompt asks for a JSON array in plain words, and the parser keeps only well-formed entries whose category is in the allowed set, so a model that ignores the instruction produces no suggestions rather than wrong ones. Keys are sent in headers only, never in a URL, and never written to disk or browser storage.
