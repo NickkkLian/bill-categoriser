@@ -159,10 +159,25 @@ class TestExtractJson(unittest.TestCase):
         self.assertEqual(llm.extract_json('x {"k": {"v": "}"}} y', kind="object"), {"k": {"v": "}"}})
         # an escaped quote followed by a bracket: mishandling the escape cuts the array at the wrong "]"
         self.assertEqual(llm.extract_json('[{"m": "a \\" ] b"}]'), [{"m": 'a " ] b'}])
+        # a model asked for an array sometimes wraps it in an object; the scan finds it there too
+        self.assertEqual(llm.extract_json('Sure! {"results": [{"merchant": "A"}]}'), [{"merchant": "A"}])
+        self.assertEqual(llm.extract_json('```json\n{"rows": [{"merchant": "B"}]}\n```'), [{"merchant": "B"}])
+        # first wins: two arrays in one reply have nothing to choose between them, and position is predictable
+        self.assertEqual(llm.extract_json('{"a": [1], "b": [2]}'), [1])
 
     def test_no_json_raises(self):
         with self.assertRaises(ValueError):
             llm.extract_json("I cannot help with that.")
+
+    def test_a_failed_extraction_says_what_came_back_instead(self):
+        """The reply is the evidence: without it the only way to learn what the model said is another paid call."""
+        with self.assertRaises(ValueError) as caught:
+            llm.extract_json("I cannot help with that.")
+        self.assertIn("I cannot help with that.", str(caught.exception))
+        with self.assertRaises(ValueError) as caught:
+            llm.extract_json("no json here, key ghp_ABCDEF1234 quoted back")
+        self.assertIn("ghp_…", str(caught.exception))
+        self.assertNotIn("ABCDEF1234", str(caught.exception))
 
 
 if __name__ == "__main__":

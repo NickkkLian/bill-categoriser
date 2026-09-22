@@ -125,8 +125,23 @@ def complete(cfg, system, user, max_tokens=2048, timeout=60, opener=None):
     return parse_response(cfg, data)
 
 
+def _excerpt(text, limit=240):
+    """What came back instead, short and with anything key-shaped masked.
+
+    2026-09-22 a live run failed with `no JSON array in the model reply` and the reply itself was not in the error,
+    so the only way to find out what the model had said was to spend another call. The reply is the evidence; it
+    belongs in the message. Keys never appear in a reply, but a reply can quote a prompt, so mask them anyway."""
+    one = " ".join(str(text).split())
+    one = re.sub(r"(sk-ant-|sk-|ghp_|AIza)[A-Za-z0-9_-]{6,}", r"\1…", one)
+    return one[:limit] + ("…" if len(one) > limit else "")
+
+
 def extract_json(text, kind="array"):
-    """First JSON array (or object) in a model reply, tolerating code fences and prose around it."""
+    """First JSON array (or object) in a model reply, tolerating code fences and prose around it.
+
+    The scan takes the first array it meets, wherever it sits — including inside an object, so a model that wraps
+    its answer as {"results": [...]} is already handled. First wins: with two arrays in one reply there is nothing
+    to prefer between them, and picking by position is at least predictable."""
     opener, closer = ("[", "]") if kind == "array" else ("{", "}")
     cleaned = re.sub(r"```(?:json)?", "", text)
     start = cleaned.find(opener)
@@ -154,7 +169,7 @@ def extract_json(text, kind="array"):
                     except json.JSONDecodeError:
                         break
         start = cleaned.find(opener, start + 1)
-    raise ValueError(f"no JSON {kind} in the model reply")
+    raise ValueError(f"no JSON {kind} in the model reply — the reply was: {_excerpt(text)}")
 
 
 def describe(cfg):
