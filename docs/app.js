@@ -422,7 +422,11 @@ function viewReview(main, m, p) {
 function focusInspector() { const t = $('#insp-title'); if (t) t.focus(); }
 function suggestPanel(m) {
   const unmapped = m.records.filter(r => r.reasons.includes('unmapped merchant') && !r.decided);
-  const mode = S.ui.suggestMode || 'sim';
+  /* Until this repository shipped a cache, 'sim' was the only choice that worked without a key, so it was the
+     default. Now docs/llm-cache.json is served and holds what the model actually answered, which is the better
+     thing to show a visitor: no network, no key, and real output rather than canned keyword rules. Simulate
+     stays, labelled as canned, and an explicit choice always wins over this. */
+  const mode = S.ui.suggestMode || (S.cache ? 'cached' : 'sim');
   const L = S.llm;   // { provider, model, baseUrl } — settings only; the key lives in S.apiKey (memory, never persisted)
   if (S.cache === undefined) { S.cache = null; fetch('llm-cache.json', { cache: 'no-store' }).then(r => r.ok ? r.json() : null).then(j => { S.cache = j && j.entries ? j : null; if (S.ui.suggestOpen) render(); }).catch(() => { S.cache = null; }); }
   const cachedHits = S.cache ? unmapped.filter(r => S.cache.entries[r.merchant.toLowerCase().replace(/[^a-z0-9]/g, '')]) : [];

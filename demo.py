@@ -91,8 +91,12 @@ def eval_llm(use_llm=False):
         if err:print('LLM call failed: '+err);return 2
         save_cache(cache);print(f'LLM cache: {added} new entries ({cache["provider"]} · {cache["model"]}, {cache["generated"]})')
     base=sum(keyword_guess(i['merchant'])==i['expected'] for i in items)
+    # The split is computed, not asserted. It used to read "by construction: 20 keyword names + 10 that need
+    # inference", which implies the baseline gets all twenty — it gets nineteen. One keyword name is written
+    # "Leasing" and the rule looks for "lease".
     cached=[i for i in items if norm(i['merchant']) in cache['entries']]
-    print(f'keyword baseline: {base}/{len(items)} = {base/len(items):.0%} (by construction: 20 keyword names + 10 that need inference)')
+    bybase={k:(sum(1 for i in items if i['kind']==k and keyword_guess(i['merchant'])==i['expected']),sum(1 for i in items if i['kind']==k)) for k in ('keyword','inference')}
+    print(f'keyword baseline: {base}/{len(items)} = {base/len(items):.0%} · keyword names {bybase["keyword"][0]}/{bybase["keyword"][1]} · inference names {bybase["inference"][0]}/{bybase["inference"][1]}')
     if len(cached)<len(items):
         print(f'NOT RUN: cached model output covers {len(cached)}/{len(items)} eval merchants. Populate with: ANTHROPIC_API_KEY=... python3 -B demo.py eval --llm  (or LLM_PROVIDER=openai|gemini|openai-compatible with LLM_MODEL and the key for that provider)');return 2
     hits=[i for i in items if cache['entries'][norm(i['merchant'])]['category']==i['expected']]
