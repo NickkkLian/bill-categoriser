@@ -203,7 +203,7 @@ const setParam = (k, v) => { const r = route(); const o = Object.fromEntries(r.p
 
 /* ---------- toasts / dialogs ---------- */
 // `action` ({ label, run }) puts the way to fix an error in the toast; a toast with an action stays until it is dismissed, so
-// the fix is not put somewhere that expires (ruling 2026-09-16 20:11 Q8, form B)
+// the fix is not put somewhere that expires
 function toast(msg, { undo, ms, kind, action } = {}) {
   const box = $('#toasts'); const el = h('div', { class: 'toast enter', role: kind === 'error' ? 'alert' : 'status' }, h('span', {}, msg));
   if (undo) el.append(h('button', { class: 'btn btn-sm', onclick: () => { undo(); el.remove(); } }, 'Undo'));
@@ -216,8 +216,8 @@ function toast(msg, { undo, ms, kind, action } = {}) {
   el.addEventListener('mouseenter', () => clearTimeout(t)); el.addEventListener('mouseleave', () => { t = setTimeout(() => el.remove(), 3000); });
 }
 // A dialog settles on its own form's submit, its Cancel button, Esc or close, whichever comes first. Relying on the close event
-// alone left OK dead in Chrome after the dialog had once been closed with Esc: it fired no close event again (Callback Desk
-// round-1 audit, 2026-09-16; this helper is the same one).
+// alone left OK dead in Chrome after the dialog had once been closed with Esc: it fired no close event again (found in Callback
+// Desk, 2026-09-16; this helper is the same one).
 function dialog(title, body, { ok = 'OK', cancel = 'Cancel', danger = false } = {}) {
   return new Promise(res => {
     const d = $('#dlg'); d.innerHTML = ''; const opener = document.activeElement, off = new AbortController(); let settled = false;
@@ -585,7 +585,7 @@ function renderNav(view, m) {
   if (m) nav.append(h('button', { class: 'btn btn-ghost btn-sm collapse', onclick: () => { S.ui.navCollapsed = !S.ui.navCollapsed; persist(); render(); }, 'aria-label': S.ui.navCollapsed ? 'Expand navigation' : 'Collapse navigation', title: S.ui.navCollapsed ? 'Expand navigation' : 'Collapse navigation' }, h('span', { class: 'ico', 'aria-hidden': 'true' }, S.ui.navCollapsed ? '»' : '«'), h('span', {}, S.ui.navCollapsed ? '' : 'collapse')));
 }
 // Every render replaces the page's elements, so the control a keyboard user was on disappears and focus drops to <body>:
-// no focus ring, and Tab starts again from the top of the page (round-3 audit, 2026-09-16). render() puts focus back on the
+// no focus ring, and Tab starts again from the top of the page (2026-09-16). render() puts focus back on the
 // same control (same attribute, or same label and position among its twins) or, when that control is gone, on the page heading.
 function focusKey(el) {
   if (!el || el === document.body || el === document.documentElement) return null;
@@ -607,7 +607,7 @@ function focusKey(el) {
   return find;
 }
 // Where focus goes when there is no control to go back to, and where the skip link sends it: the first visible h1 in main,
-// else the first visible h2, else main itself (ruling 2026-09-16 20:11 Q16: a ring on a heading is on screen; one around
+// else the first visible h2, else main itself (a ring on a heading is on screen; one around
 // the whole of main was not). "Visible" means a box larger than 2px that is not clipped to 1px.
 function firstHeading() {
   const seen = x => { const r = x.getBoundingClientRect(), cs = getComputedStyle(x); return r.width > 2 && r.height > 2 && cs.visibility !== 'hidden' && !/inset\(50%\)|rect\(0/.test(cs.clipPath + cs.clip); };
@@ -625,11 +625,11 @@ function restoreFocus(find) {
 function render() {
   const active = document.activeElement, inQueue = !!(active && active.closest && active.closest('#queue'));
   const find = focusKey(active); renderPage();
-  // one primary button per screen (v1 §9.1): the top-bar "Start review" steps aside where the page shows its own
+  // one primary button per screen: the top-bar "Start review" steps aside where the page shows its own
   // (the overview plate, the review inspector, Export, the landing page's load button)
   if ([...document.querySelectorAll('#main .btn-primary, #inspector .btn-primary')].some(b => b.getClientRects().length)) $('#primary-action').hidden = true;
   // the review queue moves its own selection (auto-advance after a, c, d or x): focus in the queue follows the selected row,
-  // as j and k already do, so the ring never sits on a row the next shortcut will not act on (designer ruling 2026-09-16 17:05 Q4)
+  // as j and k already do, so the ring never sits on a row the next shortcut will not act on
   const selected = inQueue && $('#queue li[aria-selected="true"]');
   if (selected) selected.focus(); else restoreFocus(find);
 }
@@ -661,8 +661,8 @@ function roving(e) {
   e.preventDefault(); next.focus(); if (next !== opt) next.click(); return true;
 }
 // Page-level single keys follow the Settings switch (Appearance.shortcutsOn); the letter keys act only while focus is in the
-// review queue or the inspector, as the help says (a letter pressed on a navigation link used to exclude a row; ruling
-// 2026-09-16 20:11 Q3). Keys that belong to the focused control itself — arrows in the queue, Enter on a row — always work.
+// review queue or the inspector, as the help says (a letter pressed on a navigation link used to exclude a row).
+// Keys that belong to the focused control itself — arrows in the queue, Enter on a row — always work.
 function keyHandler(e) {
   const t = e.target; if (t.closest('input, select, textarea, [contenteditable]') || document.querySelector('dialog[open]')) return;
   if (roving(e)) return;

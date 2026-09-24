@@ -177,7 +177,7 @@ def extract_json(text, kind="array"):
     # max_tokens, which is where the fix is (2026-09-22: thirty merchants in one call, 2048 tokens).
     # The condition is "left open", not "a bracket exists": a refusal that happens to contain one —
     # "I cannot help [see policy] with that." — closes it, and the first version of this branch answered that
-    # 37-character reply with "almost certainly cut off by the output limit" (found by an auditor the same day).
+    # 37-character reply with "almost certainly cut off by the output limit" (found the same day).
     if unclosed:
         raise ValueError(f"the model reply opens a JSON {kind} and never closes it — {len(text)} characters, "
                          f"so it was almost certainly cut off by the output limit. Ask for fewer items per call "

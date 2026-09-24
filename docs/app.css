@@ -1,4 +1,4 @@
-/* app.css — Bill Bench. Consumes only semantic tokens from design-tokens.css (02 §8). Base + family components (from assets/example.html) + workbench layout. */
+/* app.css — Bill Bench. Consumes only semantic tokens from design-tokens.css. Base + family components + workbench layout. */
 /* ===== Fallback faces: until the web fonts load (or if they never do), system fonts are scaled to the measured widths so line lengths and column widths do not jump ===== */
 @font-face{font-family:"Fraunces Fallback";src:local("Georgia"),local("Times New Roman");size-adjust:93.3%}
 @font-face{font-family:"Inter Fallback";src:local("Helvetica Neue"),local("Arial"),local("Segoe UI");size-adjust:106.5%}
@@ -290,10 +290,10 @@ dialog table{font-size:var(--text-sm)}dialog td{padding:2px var(--space-3) 2px 0
 }
 .topbar :focus-visible,.plate :focus-visible,.honest :focus-visible{outline-color:var(--on-band)}
 /* Focus scrolls clear of the sticky top bar: a control reached by Tab, or <main> after the skip link, never lands under
-   the bar (round-1 audits, 2026-09-16: the ring of <main> and most of a button sat behind it). A product whose sticky
+   the bar (2026-09-16: the ring of <main> and most of a button sat behind it). A product whose sticky
    chrome is taller than the bar, or wraps, sets --sticky-top to its measured height. */
 html{scroll-padding-top:calc(var(--sticky-top,var(--topbar-h)) + var(--space-3))}
-/* Native checkboxes and radios take the palette's accent instead of the browser's blue (ruling 2026-09-16 20:11 Q4:
+/* Native checkboxes and radios take the palette's accent instead of the browser's blue (contrast:
    checked fill against its surface 4.55–16.17:1, tick against the fill 4.71–16.34:1 across the three palettes, light and dark). */
 :root{accent-color:var(--accent)}
 .topbar ::selection,.plate ::selection,.honest ::selection{background:var(--on-band-2);color:var(--band)}

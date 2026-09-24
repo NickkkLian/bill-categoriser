@@ -16,7 +16,7 @@
      Appearance.settings(opts)                the Theme and Appearance controls alone, for mounting elsewhere.
      Single-key shortcuts (products that have them pass `shortcuts`, a one-line description of their keys): an On | Off
      group after Appearance, stored as nl-shortcuts ("off" turns them off; anything else, or nothing, is on). Products
-     read Appearance.shortcutsOn() before acting on a page-level single key (WCAG 2.1.4; ruling 2026-09-16 20:11 Q3).
+     read Appearance.shortcutsOn() before acting on a page-level single key (WCAG 2.1.4).
    No dependencies. Styles use design tokens only. */
 (function (root) {
   'use strict';
