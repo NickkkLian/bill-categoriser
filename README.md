@@ -1,5 +1,7 @@
 # Bill Bench
 
+![Bill Bench](.github/header.png)
+
 **Clean, categorise and reconcile a year of bills in the browser — every row stays traceable.**
 
 Three inconsistent Excel exports go in; a five-sheet month-end review workbook comes out. Rules normalise merchants, dates and amounts, exact duplicates are separated, uncertain rows are flagged for a person instead of guessed, and the totals reconcile to the cent. The same rules run as a Python CLI and as a browser app, and a checker proves the two agree.
