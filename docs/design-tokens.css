@@ -13,10 +13,10 @@
    at all - the attribute being present means the user chose something.
 
    data-theme="dark" / "light" is a LEGACY alias. Every shipped product has
-   moved to data-scheme; the one remaining consumer is tools/retoken.py,
-   which locates the dark values by matching ^:root[data-theme="dark"]{ at
-   the start of a line. Keep this block standalone and line-start until that
-   tool stops parsing for it.
+   moved to data-scheme; the one remaining consumer is a token-migration
+   script outside this repository, which locates the dark values by matching
+   ^:root[data-theme="dark"]{ at the start of a line. Keep this block
+   standalone and line-start until that script stops parsing for it.
 
    Each palette is declared twice: once on :root, once on a bare
    [data-theme] so a nested element can preview a theme (used by the theme
@@ -630,9 +630,9 @@
 }
 }
 
-/* Legacy alias. Must stay a standalone, line-start block: tools/retoken.py locates
-   the dark values with ^:root\[data-theme="dark"\]\s*\{ and would silently read
-   light values as dark if this were folded into a selector list. */
+/* Legacy alias. Must stay a standalone, line-start block: a token-migration script
+   outside this repository locates the dark values with ^:root\[data-theme="dark"\]\s*\{
+   and would silently read light values as dark if this were folded into a selector list. */
 :root[data-theme="dark"] {
   color-scheme: dark;
   --paper: #241f27;

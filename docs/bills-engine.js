@@ -1,5 +1,5 @@
 /* bills-engine.js — browser + Node port of demo.py (bill-categoriser).
-   Same rules, same numbers: proven by parity.mjs against the Python CLI (ledger bytes,
+   Same rules, same numbers: proven by check-web.mjs against the Python CLI (ledger bytes,
    workbook cells, and `python3 demo.py check` accepting a browser-built output folder).
    No dependencies. ZIP inflate uses DecompressionStream('deflate-raw'). */
 (function (root, factory) {
