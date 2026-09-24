@@ -6,7 +6,7 @@ Three inconsistent Excel exports go in; a five-sheet month-end review workbook c
 
 > This is a runnable demonstration with **synthetic data** (125 generated rows, seed 42). It is not a client case study, and no bill ever leaves your machine.
 
-[![Check](https://github.com/NickkkLian/bill-categoriser/actions/workflows/check.yml/badge.svg)](https://github.com/NickkkLian/bill-categoriser/actions/workflows/check.yml)
+[![Check](https://img.shields.io/github/actions/workflow/status/NickkkLian/bill-categoriser/check.yml?branch=main&label=check&style=flat-square&labelColor=2f5859)](https://github.com/NickkkLian/bill-categoriser/actions/workflows/check.yml)
 
 ![Bill Bench overview: the reconciliation panel, partition cards, review workload and in-page checks](docs/screenshot-overview.png)
 
@@ -48,6 +48,7 @@ Four input amounts are unknown; they are kept out of the arithmetic, never treat
 ## How it fits together
 
 ```mermaid
+%%{init: {"theme": "base", "themeVariables": {"darkMode": false, "fontFamily": "Inter, BlinkMacSystemFont, Segoe UI, Helvetica Neue, Helvetica, Arial", "primaryColor": "#dae7db", "mainBkg": "#dae7db", "primaryTextColor": "#1d1b24", "nodeTextColor": "#1d1b24", "textColor": "#1d1b24", "primaryBorderColor": "#2f5859", "nodeBorder": "#2f5859", "secondaryColor": "#fae8eb", "tertiaryColor": "#f7e9e8", "lineColor": "#5f7f76", "arrowheadColor": "#5f7f76", "defaultLinkColor": "#5f7f76", "edgeLabelBackground": "#fae8eb", "clusterBkg": "#f7e9e8", "clusterBorder": "#a8707a", "titleColor": "#7d2d44"}}}%%
 flowchart LR
   A[".xlsx / .csv<br/>or seed generator"] --> B["read_input<br/>3 known header layouts + tolerant mapping"]
   B --> C["clean<br/>alias map · integer cents · explicit dates · partitions · reasons"]
