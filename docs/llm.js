@@ -12,6 +12,10 @@
   const PROVIDERS = ['anthropic', 'openai', 'gemini', 'openai-compatible'];
   const LABEL = { anthropic: 'Claude (Anthropic)', openai: 'OpenAI', gemini: 'Google Gemini', 'openai-compatible': 'OpenAI-compatible endpoint' };
   const DEFAULT_MODEL = { anthropic: 'claude-sonnet-5' };
+  // Output-token budget when the caller gives none. Claude Sonnet 5 thinks on every request and the thinking counts
+  // toward max_tokens, so Claude gets 16000; other providers keep 2048 (a small local model can reject a larger one).
+  const DEFAULT_MAX_TOKENS = { anthropic: 16000 };
+  const FALLBACK_MAX_TOKENS = 2048;
   const DEFAULT_BASE = { anthropic: 'https://api.anthropic.com/v1', openai: 'https://api.openai.com/v1', gemini: 'https://generativelanguage.googleapis.com/v1beta' };
 
   class ConfigError extends Error {}
@@ -29,8 +33,9 @@
     return { provider, model, baseUrl, apiKey };
   }
 
-  function buildRequest(cfg, system, user, maxTokens = 2048, { browser = false } = {}) {
+  function buildRequest(cfg, system, user, maxTokens, { browser = false } = {}) {
     const { provider: p, model, baseUrl: base, apiKey: key } = cfg;
+    if (maxTokens == null) maxTokens = DEFAULT_MAX_TOKENS[p] || FALLBACK_MAX_TOKENS;
     const headers = { 'content-type': 'application/json' };
     let url, body;
     if (p === 'anthropic') {
@@ -56,15 +61,21 @@
 
   function parseResponse(cfg, data) {
     try {
+      if (cfg.provider === 'anthropic') {
+        // a refusal, or a reply cut off at max_tokens, is not an answer: say which, instead of parsing half of one
+        if (data.stop_reason === 'refusal') throw new ProviderError('anthropic: the model declined the request (stop_reason refusal)');
+        if (data.stop_reason === 'max_tokens') throw new ProviderError('anthropic: the reply was cut off at max_tokens (stop_reason max_tokens); ask for fewer items per call or raise max_tokens');
+      }
       if (cfg.provider === 'anthropic') return { text: data.content.filter(c => (c.type || 'text') === 'text').map(c => c.text || '').join(''), model: data.model || cfg.model };
       if (cfg.provider === 'gemini') return { text: data.candidates[0].content.parts.map(x => x.text || '').join(''), model: data.modelVersion || cfg.model };
       return { text: data.choices[0].message.content || '', model: data.model || cfg.model };
     } catch (e) {
+      if (e instanceof ProviderError) throw e;
       throw new ProviderError(`${cfg.provider}: unexpected response shape (${e.message})`);
     }
   }
 
-  async function complete(cfg, system, user, { maxTokens = 2048, fetchImpl, browser = typeof window !== 'undefined', timeoutMs = 60000 } = {}) {
+  async function complete(cfg, system, user, { maxTokens, fetchImpl, browser = typeof window !== 'undefined', timeoutMs = 60000 } = {}) {
     const req = buildRequest(cfg, system, user, maxTokens, { browser });
     const f = fetchImpl || fetch;
     const ctl = typeof AbortController !== 'undefined' ? new AbortController() : null;

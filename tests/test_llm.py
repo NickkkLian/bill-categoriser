@@ -217,5 +217,50 @@ class TestExtractJson(unittest.TestCase):
         self.assertNotIn("ABCDEF1234", str(caught.exception))
 
 
+class TestClaudeBudgetAndStopReasons(unittest.TestCase):
+    """(2026-09-25) Claude's output budget and stop reasons, with the network replaced by a fake opener."""
+
+    def fake(self, reply):
+        sent = []
+
+        class Resp:
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *a):
+                return False
+
+            def read(self):
+                return json.dumps(reply).encode("utf-8")
+
+        def opener(req, timeout=None):
+            sent.append(json.loads(req.data.decode("utf-8")))
+            return Resp()
+        return opener, sent
+
+    def claude(self):
+        return llm.config_from_env({"ANTHROPIC_API_KEY": "k"})
+
+    def test_default_budget_and_block_type(self):
+        opener, sent = self.fake({"model": "claude-sonnet-5", "stop_reason": "end_turn",
+                                  "content": [{"type": "thinking", "thinking": ""}, {"type": "text", "text": "[1]"}]})
+        text, _ = llm.complete(self.claude(), "S", "U", opener=opener)
+        self.assertEqual((sent[0]["model"], sent[0]["max_tokens"]), ("claude-sonnet-5", 16000))
+        self.assertEqual(text, "[1]")
+
+    def test_other_providers_keep_2048(self):
+        opener, sent = self.fake({"model": "m", "choices": [{"message": {"content": "[]"}}]})
+        cfg = llm.config_from_env({"LLM_PROVIDER": "openai-compatible", "LLM_MODEL": "llama-local", "LLM_BASE_URL": "http://fake.invalid/v1"})
+        llm.complete(cfg, "S", "U", opener=opener)
+        self.assertEqual(sent[0]["max_tokens"], 2048)
+
+    def test_refusal_and_max_tokens_are_errors(self):
+        for stop, words in (("refusal", "declined the request (stop_reason refusal)"), ("max_tokens", "cut off at max_tokens")):
+            opener, _ = self.fake({"model": "claude-sonnet-5", "stop_reason": stop, "content": [{"type": "text", "text": '[{"a":'}]})
+            with self.assertRaises(llm.ProviderError) as caught:
+                llm.complete(self.claude(), "S", "U", opener=opener)
+            self.assertIn(words, str(caught.exception))
+
+
 if __name__ == "__main__":
     unittest.main()

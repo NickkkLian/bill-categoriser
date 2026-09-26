@@ -88,6 +88,24 @@ ok(eq(LLM.extractJson('see [note] then [{"m": "say \\"hi\\" ]"}]'), [{ m: 'say "
 ok(eq(LLM.extractJson('[{"m": "a \\" ] b"}]'), [{ m: 'a " ] b' }]), 'an escaped quote followed by a bracket does not end the array');
 ok(await throwsWith(async () => LLM.extractJson('I cannot help with that.'), /no JSON array/), 'no JSON raises');
 
+// (2026-09-25) Claude's output budget, and its stop reasons, with fetch replaced by a fake: nothing leaves this process
+{
+  const fakeFetch = (reply) => { const sent = []; const f = async (url, init) => { sent.push(JSON.parse(init.body)); return { ok: true, status: 200, text: async () => JSON.stringify(reply) }; }; f.sent = sent; return f; };
+  const claude = LLM.config({ provider: 'anthropic', apiKey: 'k', baseUrl: 'http://fake.invalid/v1' });
+  let f = fakeFetch({ model: 'claude-sonnet-5', stop_reason: 'end_turn', content: [{ type: 'thinking', thinking: '' }, { type: 'text', text: '[1]' }] });
+  const r = await LLM.complete(claude, 'S', 'U', { fetchImpl: f });
+  ok(f.sent[0].model === 'claude-sonnet-5' && f.sent[0].max_tokens === 16000, 'anthropic: default model claude-sonnet-5 with max_tokens 16000 (Sonnet 5 thinking counts toward it)');
+  ok(r.text === '[1]', 'anthropic: the text is read by block type after a thinking block');
+  f = fakeFetch({ model: 'm', choices: [{ message: { content: '[]' } }] });
+  await LLM.complete(LLM.config({ provider: 'openai-compatible', model: 'llama-local', baseUrl: 'http://fake.invalid/v1' }), 'S', 'U', { fetchImpl: f });
+  ok(f.sent[0].max_tokens === 2048, 'openai-compatible: the default budget stays 2048');
+  for (const [stop, re] of [['refusal', /declined the request \(stop_reason refusal\)/], ['max_tokens', /cut off at max_tokens/]]) {
+    f = fakeFetch({ model: 'claude-sonnet-5', stop_reason: stop, content: [{ type: 'text', text: '[{"a":' }] });
+    let msg = ''; try { await LLM.complete(claude, 'S', 'U', { fetchImpl: f }); } catch (e) { msg = e.message; }
+    ok(re.test(msg), `anthropic: stop_reason ${stop} is an error that says so (${msg || 'no error'})`);
+  }
+}
+
 srv.close();
 console.log(`\n${fail ? 'FAIL' : 'ALL PASS'}: ${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

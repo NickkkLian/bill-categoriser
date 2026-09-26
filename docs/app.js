@@ -471,7 +471,7 @@ function simulatedSuggestion(r) { const hit = KEYWORDS.find(([rx]) => rx.test(r.
 async function askModel(cfg, rows) {
   const items = rows.map(r => ({ id: r.id, merchant: r.merchant, raw: r.raw[1], amount_cad: r.cents === null ? null : r.cents / 100 }));
   const system = `You classify small-business bill merchants into exactly one of these categories: ${CATEGORIES.join(', ')}. If the name gives no reliable signal, use null. Reply with JSON only: an array of {"id": string, "category": string|null, "confidence": number 0-1, "reason": short string}. Never invent facts about the merchant.`;
-  const res = await LLM.complete(cfg, system, JSON.stringify(items), { maxTokens: 2048 });
+  const res = await LLM.complete(cfg, system, JSON.stringify(items));   // llm.js picks the output budget per provider
   const who = `${LLM.LABEL[cfg.provider]} · ${res.model}`;
   const rowsOut = {};
   for (const x of LLM.extractJson(res.text, 'array')) { if (!x || typeof x.id !== 'string') continue; const cat = CATEGORIES.includes(x.category) ? x.category : null; rowsOut[x.id] = { category: cat, confidence: typeof x.confidence === 'number' ? x.confidence : null, reason: (cat ? '' : 'category not in the allowed list or null · ') + String(x.reason || '').slice(0, 140), mode: 'model', model: who }; }

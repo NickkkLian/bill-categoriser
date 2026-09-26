@@ -26,6 +26,10 @@ import urllib.request
 
 PROVIDERS = ("anthropic", "openai", "gemini", "openai-compatible")
 DEFAULT_MODEL = {"anthropic": "claude-sonnet-5"}
+# Output-token budget when the caller gives none. Claude Sonnet 5 thinks on every request and the thinking counts
+# toward max_tokens, so Claude gets 16000; other providers keep 2048 (a small local model can reject a larger one).
+DEFAULT_MAX_TOKENS = {"anthropic": 16000}
+FALLBACK_MAX_TOKENS = 2048
 DEFAULT_BASE = {
     "anthropic": "https://api.anthropic.com/v1",
     "openai": "https://api.openai.com/v1",
@@ -60,9 +64,11 @@ def config_from_env(env=None, default_provider="anthropic"):
     return {"provider": provider, "model": model, "base_url": base, "api_key": key}
 
 
-def build_request(cfg, system, user, max_tokens=2048):
+def build_request(cfg, system, user, max_tokens=None):
     """Pure: returns (url, headers, body_bytes). No network."""
     p, model, base, key = cfg["provider"], cfg["model"], cfg["base_url"], cfg["api_key"]
+    if max_tokens is None:
+        max_tokens = DEFAULT_MAX_TOKENS.get(p, FALLBACK_MAX_TOKENS)
     headers = {"content-type": "application/json"}
     if p == "anthropic":
         url = f"{base}/messages"
@@ -94,6 +100,13 @@ def parse_response(cfg, data):
     p = cfg["provider"]
     try:
         if p == "anthropic":
+            # a refusal, or a reply cut off at max_tokens, is not an answer: say which, instead of parsing half of one
+            stop = data.get("stop_reason")
+            if stop == "refusal":
+                raise ProviderError("anthropic: the model declined the request (stop_reason refusal)")
+            if stop == "max_tokens":
+                raise ProviderError("anthropic: the reply was cut off at max_tokens (stop_reason max_tokens); "
+                                    "ask for fewer items per call or raise max_tokens")
             text = "".join(c.get("text", "") for c in data["content"] if c.get("type", "text") == "text")
             model = data.get("model") or cfg["model"]
         elif p in ("openai", "openai-compatible"):
@@ -107,7 +120,7 @@ def parse_response(cfg, data):
     return text, model
 
 
-def complete(cfg, system, user, max_tokens=2048, timeout=60, opener=None):
+def complete(cfg, system, user, max_tokens=None, timeout=60, opener=None):
     """One request, no retries. Returns (text, model). Raises ProviderError on HTTP errors and unreadable bodies."""
     url, headers, body = build_request(cfg, system, user, max_tokens)
     req = urllib.request.Request(url, data=body, headers=headers, method="POST")
