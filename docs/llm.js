@@ -104,9 +104,16 @@
     throw new Error(`no JSON ${kind} in the model reply`);
   }
 
+  // The settings after the provider is changed: that provider's default model, no base URL and no key. The key is
+  // dropped on purpose, so a key typed for one provider is never sent to the next one's endpoint (an OpenAI key to an
+  // OpenAI-compatible address run by someone else, say).
+  function switchProvider(provider) {
+    return { provider, model: DEFAULT_MODEL[provider] || '', baseUrl: '', apiKey: null };
+  }
+
   function describe(cfg) {
     return `${LABEL[cfg.provider]} · ${cfg.model}${cfg.baseUrl === DEFAULT_BASE[cfg.provider] ? '' : ' @ ' + cfg.baseUrl}`;
   }
 
-  return { PROVIDERS, LABEL, DEFAULT_MODEL, DEFAULT_BASE, ConfigError, ProviderError, config, buildRequest, parseResponse, complete, extractJson, describe };
+  return { PROVIDERS, LABEL, DEFAULT_MODEL, DEFAULT_BASE, ConfigError, ProviderError, config, switchProvider, buildRequest, parseResponse, complete, extractJson, describe };
 });

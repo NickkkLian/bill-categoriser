@@ -72,6 +72,16 @@ for (const p of LLM.PROVIDERS) {
   ok(!req.url.includes('SECRET') && JSON.stringify(req.headers).includes('SECRET-' + p) && !LLM.describe(cfg).includes('SECRET'), `${p}: key only in headers, never in the URL or the description`);
 }
 
+console.log('changing provider');
+for (const p of LLM.PROVIDERS) {
+  const n = LLM.switchProvider(p);
+  ok(n.provider === p && n.apiKey === null && n.baseUrl === '' && n.model === (LLM.DEFAULT_MODEL[p] || ''), `switching to ${p} drops the key and the base URL`);
+}
+// the page's provider menu goes through switchProvider and puts its empty key where the key field reads from
+const APP = require('node:fs').readFileSync(new URL('./app.js', import.meta.url), 'utf8');
+ok(/'aria-label': 'Model provider', onchange: e => \{ const n = LLM\.switchProvider\(e\.target\.value\);[^}]*\bS\.apiKey = n\.apiKey;[^}]*render\(\); \}/.test(APP)
+  && /'aria-label': 'API key', value: S\.apiKey \|\| ''/.test(APP), 'app.js: changing the provider empties the key field (S.apiKey)');
+
 console.log('JSON extraction');
 ok(eq(LLM.extractJson('Here you go:\n```json\n[{"a": "b]"}]\n```'), [{ a: 'b]' }]), 'code fence and a bracket inside a string');
 ok(eq(LLM.extractJson('see [note] then [{"m": "say \\"hi\\" ]"}]'), [{ m: 'say "hi" ]' }]), 'skips a non-JSON bracket, handles escaped quotes');

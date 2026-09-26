@@ -431,7 +431,7 @@ function suggestPanel(m) {
   if (S.cache === undefined) { S.cache = null; fetch('llm-cache.json', { cache: 'no-store' }).then(r => r.ok ? r.json() : null).then(j => { S.cache = j && j.entries ? j : null; if (S.ui.suggestOpen) render(); }).catch(() => { S.cache = null; }); }
   const cachedHits = S.cache ? unmapped.filter(r => S.cache.entries[r.merchant.toLowerCase().replace(/[^a-z0-9]/g, '')]) : [];
   const cacheLabel = S.cache ? `${S.cache.provider ? LLM.LABEL[S.cache.provider] + ' · ' : ''}${S.cache.model}` : '';
-  const providerSel = h('select', { 'aria-label': 'Model provider', onchange: e => { L.provider = e.target.value; L.model = LLM.DEFAULT_MODEL[L.provider] || ''; L.baseUrl = ''; render(); } },
+  const providerSel = h('select', { 'aria-label': 'Model provider', onchange: e => { const n = LLM.switchProvider(e.target.value); L.provider = n.provider; L.model = n.model; L.baseUrl = n.baseUrl; S.apiKey = n.apiKey; render(); } },
     LLM.PROVIDERS.map(p => h('option', { value: p, selected: p === L.provider }, LLM.LABEL[p])));
   const modelIn = h('input', { type: 'text', 'aria-label': 'Model id', value: L.model, placeholder: 'model id from your provider’s list', autocomplete: 'off', spellcheck: 'false', style: 'width:14em', oninput: e => { L.model = e.target.value; } });
   const baseIn = h('input', { type: 'url', 'aria-label': 'Endpoint base URL', value: L.baseUrl, placeholder: 'http://localhost:11434/v1', autocomplete: 'off', style: 'width:16em', oninput: e => { L.baseUrl = e.target.value; } });
