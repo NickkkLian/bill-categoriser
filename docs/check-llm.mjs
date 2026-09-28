@@ -35,7 +35,7 @@ let c = LLM.config({ provider: 'anthropic', baseUrl: base, apiKey: 'sk-ant-test'
 let r = await LLM.complete(c, 'SYS', 'USER', { maxTokens: 321, browser: true });
 ok(seen.path === '/messages' && seen.headers['x-api-key'] === 'sk-ant-test' && seen.headers['anthropic-version'] === '2023-06-01', 'anthropic: /messages with x-api-key and anthropic-version');
 ok(seen.headers['anthropic-dangerous-direct-browser-access'] === 'true', 'anthropic from a page: sends the browser-access header Anthropic requires');
-ok(eq(seen.body, { model: 'claude-sonnet-5', max_tokens: 321, system: 'SYS', messages: [{ role: 'user', content: 'USER' }] }), 'anthropic: body is model, max_tokens, system, messages');
+ok(eq(seen.body, { model: 'claude-sonnet-5-5', max_tokens: 321, system: 'SYS', messages: [{ role: 'user', content: 'USER' }] }), 'anthropic: body is model, max_tokens, system, messages');
 ok(r.model === 'claude-test-1' && LLM.extractJson(r.text)[0].category === 'Supplies', 'anthropic: reply text and model read');
 
 c = LLM.config({ provider: 'openai', baseUrl: base, apiKey: 'sk-oa-test', model: 'some-openai-model' });
@@ -63,7 +63,7 @@ ok(await throwsWith(() => LLM.complete(LLM.config({ provider: 'openai-compatible
 ok(await throwsWith(async () => LLM.parseResponse({ provider: 'openai', model: 'm' }, { choices: [] }), /unexpected response shape/), 'unexpected shape is an error, not an empty answer');
 
 console.log('configuration');
-ok(eq((({ provider, model, baseUrl }) => ({ provider, model, baseUrl }))(LLM.config({ apiKey: 'k' })), { provider: 'anthropic', model: 'claude-sonnet-5', baseUrl: 'https://api.anthropic.com/v1' }), 'defaults to Claude');
+ok(eq((({ provider, model, baseUrl }) => ({ provider, model, baseUrl }))(LLM.config({ apiKey: 'k' })), { provider: 'anthropic', model: 'claude-sonnet-5-5', baseUrl: 'https://api.anthropic.com/v1' }), 'defaults to Claude');
 for (const [opts, re] of [[{}, /API key/], [{ provider: 'openai', apiKey: 'k' }, /model id is required/], [{ provider: 'openai-compatible', model: 'm' }, /base URL is required/], [{ provider: 'mistral' }, /not one of/]])
   ok(await throwsWith(async () => LLM.config(opts), re), `config error names what to set: ${JSON.stringify(opts)}`);
 for (const p of LLM.PROVIDERS) {
@@ -92,15 +92,15 @@ ok(await throwsWith(async () => LLM.extractJson('I cannot help with that.'), /no
 {
   const fakeFetch = (reply) => { const sent = []; const f = async (url, init) => { sent.push(JSON.parse(init.body)); return { ok: true, status: 200, text: async () => JSON.stringify(reply) }; }; f.sent = sent; return f; };
   const claude = LLM.config({ provider: 'anthropic', apiKey: 'k', baseUrl: 'http://fake.invalid/v1' });
-  let f = fakeFetch({ model: 'claude-sonnet-5', stop_reason: 'end_turn', content: [{ type: 'thinking', thinking: '' }, { type: 'text', text: '[1]' }] });
+  let f = fakeFetch({ model: 'claude-sonnet-5-5', stop_reason: 'end_turn', content: [{ type: 'thinking', thinking: '' }, { type: 'text', text: '[1]' }] });
   const r = await LLM.complete(claude, 'S', 'U', { fetchImpl: f });
-  ok(f.sent[0].model === 'claude-sonnet-5' && f.sent[0].max_tokens === 16000, 'anthropic: default model claude-sonnet-5 with max_tokens 16000 (Sonnet 5 thinking counts toward it)');
+  ok(f.sent[0].model === 'claude-sonnet-5-5' && f.sent[0].max_tokens === 16000, 'anthropic: default model claude-sonnet-5-5 with max_tokens 16000 (Sonnet 5.5 thinking counts toward it)');
   ok(r.text === '[1]', 'anthropic: the text is read by block type after a thinking block');
   f = fakeFetch({ model: 'm', choices: [{ message: { content: '[]' } }] });
   await LLM.complete(LLM.config({ provider: 'openai-compatible', model: 'llama-local', baseUrl: 'http://fake.invalid/v1' }), 'S', 'U', { fetchImpl: f });
   ok(f.sent[0].max_tokens === 2048, 'openai-compatible: the default budget stays 2048');
   for (const [stop, re] of [['refusal', /declined the request \(stop_reason refusal\)/], ['max_tokens', /cut off at max_tokens/]]) {
-    f = fakeFetch({ model: 'claude-sonnet-5', stop_reason: stop, content: [{ type: 'text', text: '[{"a":' }] });
+    f = fakeFetch({ model: 'claude-sonnet-5-5', stop_reason: stop, content: [{ type: 'text', text: '[{"a":' }] });
     let msg = ''; try { await LLM.complete(claude, 'S', 'U', { fetchImpl: f }); } catch (e) { msg = e.message; }
     ok(re.test(msg), `anthropic: stop_reason ${stop} is an error that says so (${msg || 'no error'})`);
   }

@@ -11,8 +11,8 @@
   'use strict';
   const PROVIDERS = ['anthropic', 'openai', 'gemini', 'openai-compatible'];
   const LABEL = { anthropic: 'Claude (Anthropic)', openai: 'OpenAI', gemini: 'Google Gemini', 'openai-compatible': 'OpenAI-compatible endpoint' };
-  const DEFAULT_MODEL = { anthropic: 'claude-sonnet-5' };
-  // Output-token budget when the caller gives none. Claude Sonnet 5 thinks on every request and the thinking counts
+  const DEFAULT_MODEL = { anthropic: 'claude-sonnet-5-5' };
+  // Output-token budget when the caller gives none. Claude Sonnet 5.5 thinks on every request and the thinking counts
   // toward max_tokens, so Claude gets 16000; other providers keep 2048 (a small local model can reject a larger one).
   const DEFAULT_MAX_TOKENS = { anthropic: 16000 };
   const FALLBACK_MAX_TOKENS = 2048;

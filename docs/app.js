@@ -54,7 +54,7 @@ const DB = {
 /* ---------- state ---------- */
 const S = { source: null, rows: null, rules: { aliases: [], threshold: E.DEFAULT_HIGH_CENTS }, pending: null, decisions: [], suggestions: {}, suggestMeta: null, checks: null,
   ui: { autoAdvance: true, sort: 'source', navCollapsed: false, inspectorOpen: false, seenStart: false, page: 0 }, apiKey: null,
-  llm: { provider: 'anthropic', model: 'claude-sonnet-5', baseUrl: '' } };
+  llm: { provider: 'anthropic', model: 'claude-sonnet-5-5', baseUrl: '' } };
 let cache = null, saveTimer = null;
 const invalidate = () => { cache = null; };
 const persist = () => { clearTimeout(saveTimer); saveTimer = setTimeout(() => DB.set('state', { source: S.source, rows: S.rows, rules: S.rules, decisions: S.decisions, ui: { autoAdvance: S.ui.autoAdvance, sort: S.ui.sort, navCollapsed: S.ui.navCollapsed, seenStart: S.ui.seenStart }, savedAt: nowIso() }), 150); };

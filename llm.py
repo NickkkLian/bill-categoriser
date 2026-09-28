@@ -25,8 +25,8 @@ import urllib.parse
 import urllib.request
 
 PROVIDERS = ("anthropic", "openai", "gemini", "openai-compatible")
-DEFAULT_MODEL = {"anthropic": "claude-sonnet-5"}
-# Output-token budget when the caller gives none. Claude Sonnet 5 thinks on every request and the thinking counts
+DEFAULT_MODEL = {"anthropic": "claude-sonnet-5-5"}
+# Output-token budget when the caller gives none. Claude Sonnet 5.5 thinks on every request and the thinking counts
 # toward max_tokens, so Claude gets 16000; other providers keep 2048 (a small local model can reject a larger one).
 DEFAULT_MAX_TOKENS = {"anthropic": 16000}
 FALLBACK_MAX_TOKENS = 2048

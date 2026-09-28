@@ -68,7 +68,7 @@ class TestAgainstMock(unittest.TestCase):
         s = self.srv.seen
         self.assertEqual(s["path"], "/messages")
         self.assertEqual((s["headers"]["x-api-key"], s["headers"]["anthropic-version"]), ("sk-ant-test", "2023-06-01"))
-        self.assertEqual(s["body"], {"model": "claude-sonnet-5", "max_tokens": 321, "system": "SYS",
+        self.assertEqual(s["body"], {"model": "claude-sonnet-5-5", "max_tokens": 321, "system": "SYS",
                                      "messages": [{"role": "user", "content": "USER"}]})
         self.assertEqual((json.loads(text)[0]["category"], model), ("Supplies", "claude-test-1"))
 
@@ -132,7 +132,7 @@ class TestAgainstMock(unittest.TestCase):
 class TestConfig(unittest.TestCase):
     def test_defaults_to_claude(self):
         c = llm.config_from_env({"ANTHROPIC_API_KEY": "k"})
-        self.assertEqual((c["provider"], c["model"], c["base_url"]), ("anthropic", "claude-sonnet-5", "https://api.anthropic.com/v1"))
+        self.assertEqual((c["provider"], c["model"], c["base_url"]), ("anthropic", "claude-sonnet-5-5", "https://api.anthropic.com/v1"))
 
     def test_errors_name_the_variable_to_set(self):
         cases = [({}, "ANTHROPIC_API_KEY"), ({"LLM_PROVIDER": "openai", "OPENAI_API_KEY": "k"}, "LLM_MODEL"),
@@ -242,10 +242,10 @@ class TestClaudeBudgetAndStopReasons(unittest.TestCase):
         return llm.config_from_env({"ANTHROPIC_API_KEY": "k"})
 
     def test_default_budget_and_block_type(self):
-        opener, sent = self.fake({"model": "claude-sonnet-5", "stop_reason": "end_turn",
+        opener, sent = self.fake({"model": "claude-sonnet-5-5", "stop_reason": "end_turn",
                                   "content": [{"type": "thinking", "thinking": ""}, {"type": "text", "text": "[1]"}]})
         text, _ = llm.complete(self.claude(), "S", "U", opener=opener)
-        self.assertEqual((sent[0]["model"], sent[0]["max_tokens"]), ("claude-sonnet-5", 16000))
+        self.assertEqual((sent[0]["model"], sent[0]["max_tokens"]), ("claude-sonnet-5-5", 16000))
         self.assertEqual(text, "[1]")
 
     def test_other_providers_keep_2048(self):
@@ -256,7 +256,7 @@ class TestClaudeBudgetAndStopReasons(unittest.TestCase):
 
     def test_refusal_and_max_tokens_are_errors(self):
         for stop, words in (("refusal", "declined the request (stop_reason refusal)"), ("max_tokens", "cut off at max_tokens")):
-            opener, _ = self.fake({"model": "claude-sonnet-5", "stop_reason": stop, "content": [{"type": "text", "text": '[{"a":'}]})
+            opener, _ = self.fake({"model": "claude-sonnet-5-5", "stop_reason": stop, "content": [{"type": "text", "text": '[{"a":'}]})
             with self.assertRaises(llm.ProviderError) as caught:
                 llm.complete(self.claude(), "S", "U", opener=opener)
             self.assertIn(words, str(caught.exception))
