@@ -284,6 +284,9 @@ dialog table{font-size:var(--text-sm)}dialog td{padding:2px var(--space-3) 2px 0
 .topbar .btn,.plate .btn{background:transparent;border-color:var(--band-line);color:var(--on-band)}
 .topbar .btn-ghost,.plate .btn-ghost{border-color:transparent}
 .topbar .btn-primary,.plate .btn-primary{background:var(--on-band);border-color:var(--on-band);color:var(--band)}
+/* a disabled primary on the band keeps the disabled look: the band rule above has the same weight as .btn[disabled]
+   and comes later, so without this it would paint a disabled button like a live one (hover too) */
+.topbar .btn.btn-primary[disabled],.topbar .btn.btn-primary[aria-disabled="true"],.plate .btn.btn-primary[disabled],.plate .btn.btn-primary[aria-disabled="true"]{color:var(--text-disabled);background:var(--neutral-tint);border-color:var(--border)}
 @media (hover:hover) and (pointer:fine){
   .topbar .btn:hover,.plate .btn:hover{background:var(--band-line);border-color:var(--band-line)}
   .topbar .btn-primary:hover,.plate .btn-primary:hover{background:var(--on-band-2);border-color:var(--on-band-2)}
