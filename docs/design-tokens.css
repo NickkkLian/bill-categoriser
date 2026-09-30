@@ -30,7 +30,7 @@
 
   color-scheme: light;
 
-  /* ---- 1. Surfaces: four levels. Lightness AND hue both step (see note 1) ---- */
+  /* ---- 1. Surfaces: four levels. Lightness AND hue both step ---- */
   --paper:          #fdf6f2;   /* cards, table body, inputs - lit plane */
   --surface:        var(--paper); /* v2 name kept: --surface is the card surface */
   --bg:             #f7e9e8;   /* canvas - the local colour of the scene */
