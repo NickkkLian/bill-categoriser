@@ -26,11 +26,14 @@ def user_text(provider_path, body):
         return body["messages"][0]["content"]
     if provider_path.endswith("/chat/completions"):
         return next(m["content"] for m in body["messages"] if m["role"] == "user")
+    if provider_path.endswith("/responses"):
+        return body["input"][0]["content"]
     return body["contents"][0]["parts"][0]["text"]
 
 
 class EchoMock(http.server.BaseHTTPRequestHandler):
     calls = []
+    auth = []
 
     def log_message(self, *a):
         pass
@@ -38,9 +41,18 @@ class EchoMock(http.server.BaseHTTPRequestHandler):
     def do_POST(self):
         body = json.loads(self.rfile.read(int(self.headers.get("content-length") or 0)))
         EchoMock.calls.append(self.path)
+        EchoMock.auth.append(self.headers.get("authorization"))
         asked = json.loads(user_text(self.path, body))
         answer = json.dumps([{"merchant": x["merchant"], "category": "Supplies", "confidence": 0.5, "reason": "mock"} for x in asked])
         reply = "Sure — here is the JSON:\n```json\n" + answer + "\n```"
+        if self.path.endswith("/responses"):   # ChatGPT plan usage: a Responses event stream
+            events = [{"type": "response.output_text.delta", "delta": reply[:10]},
+                      {"type": "response.output_text.delta", "delta": reply[10:]},
+                      {"type": "response.completed", "response": {"model": "chatgpt-mock"}}]
+            raw = "".join(f"event: {e['type']}\ndata: {json.dumps(e)}\n\n" for e in events).encode()
+            self.send_response(200); self.send_header("content-type", "text/event-stream"); self.end_headers()
+            self.wfile.write(raw)
+            return
         if self.path.endswith("/messages"):
             obj = {"model": "claude-mock", "content": [{"type": "text", "text": reply}]}
         elif self.path.endswith("/chat/completions"):
@@ -103,6 +115,18 @@ class TestBuildWithEachProvider(unittest.TestCase):
 
     def test_openai_compatible(self):
         self.run_provider("openai-compatible", {"LLM_MODEL": "llama-local"}, "/chat/completions", "openai-mock")
+
+    def test_chatgpt(self):
+        """Continue with ChatGPT: a saved, signed-in session (no API key) is what pays for the call."""
+        import chatgpt_auth
+        d = os.path.join(self.tmp, "chatgpt-auth")
+        chatgpt_auth.save_account(d, {"client_id": "oaiapp_wiring", "subject": "s", "access_token": "at-wiring",
+                                      "refresh_token": "rt-wiring", "expires_in": 3600,
+                                      "scopes": chatgpt_auth.SCOPES.split(),
+                                      "saved_at": chatgpt_auth._utc_now_iso(__import__("time").time())})
+        self.run_provider("chatgpt", {"LLM_BASE_URL": self.base + "/v1", "LLM_MODEL": "gpt-plan-model",
+                                      "CHATGPT_AUTH_DIR": d}, "/v1/responses", "chatgpt-mock")
+        self.assertEqual(EchoMock.auth[-1], "Bearer at-wiring")
 
     def test_second_build_is_offline(self):
         """A cache that already covers every uncategorised merchant means no call and no key — what the README promises."""

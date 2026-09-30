@@ -391,7 +391,7 @@ def break_cache():
         assert result.returncode==1 and 'category outside the allowed set' in result.stdout,'cache mutation did not trigger the cache validation'
         print('EXPECTED CACHE FAILURE OBSERVED; the real cache is untouched')
 def main():
-    p=argparse.ArgumentParser();p.add_argument('command',choices=['build','check','break','eval']);p.add_argument('--out',type=Path,default=ROOT/'output');p.add_argument('--seed',type=int,default=42);p.add_argument('--high-cad',type=threshold_cents,default=DEFAULT_HIGH_CENTS,metavar='AMOUNT');p.add_argument('--no-repeat',action='store_true');p.add_argument('--llm',action='store_true',help='build: ask a model about uncategorised merchants (LLM_PROVIDER anthropic|openai|gemini|openai-compatible, default anthropic; needs that provider\'s key and, except for Claude, LLM_MODEL; advisory, cached); eval: populate the eval cache');a=p.parse_args()
+    p=argparse.ArgumentParser();p.add_argument('command',choices=['build','check','break','eval']);p.add_argument('--out',type=Path,default=ROOT/'output');p.add_argument('--seed',type=int,default=42);p.add_argument('--high-cad',type=threshold_cents,default=DEFAULT_HIGH_CENTS,metavar='AMOUNT');p.add_argument('--no-repeat',action='store_true');p.add_argument('--llm',action='store_true',help='build: ask a model about uncategorised merchants (LLM_PROVIDER anthropic|openai|gemini|openai-compatible|chatgpt, default anthropic; needs that provider\'s key, or for chatgpt a sign-in with `python chatgpt_auth.py login`, and, except for Claude, LLM_MODEL; advisory, cached); eval: populate the eval cache');a=p.parse_args()
     try:
         if a.command=='build':build(a.out,a.seed,a.high_cad,a.llm)
         elif a.command=='check':verify(a.out,not a.no_repeat,a.high_cad)
