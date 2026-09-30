@@ -14,7 +14,7 @@ Three inconsistent Excel exports go in; a five-sheet month-end review workbook c
 
 ## Try it
 
-**In the browser** — open the [live demo](https://nickkklian.github.io/bill-categoriser/?demo=1) (GitHub Pages, static, no server), or open `docs/index.html` from a clone; it works offline. *Load the sample workbook* generates the 125 synthetic rows in the tab, or drop your own `.xlsx` / `.csv` onto the landing page: files are parsed locally and never uploaded.
+**In the browser** — open the [live demo](https://nickkklian.github.io/bill-categoriser/?demo=1) (GitHub Pages, static, no server), or open `docs/index.html` from a clone; it works offline, except for the cached model answers: a browser will not read `docs/llm-cache.json` from a `file://` page, so to get them serve the folder instead (`python3 -m http.server -d docs`, then open http://localhost:8000). *Load the sample workbook* generates the 125 synthetic rows in the tab, or drop your own `.xlsx` / `.csv` onto the landing page: files are parsed locally and never uploaded.
 
 **From the command line** — tested on macOS 15.7 with Python 3.9, 3.12 and 3.13. No packages, accounts or network access are needed.
 
