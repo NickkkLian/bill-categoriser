@@ -690,7 +690,9 @@ def list_models(base, token, opener=None):
 def main(argv=None):
     import argparse
     p = argparse.ArgumentParser(description=f"Continue with ChatGPT for {APP_NAME}: use your ChatGPT Plus/Pro plan "
-                                            "instead of an API key (OpenAI's official Sign in with ChatGPT flow).")
+                                            "instead of an API key (OpenAI's official Sign in with ChatGPT flow). "
+                                            "Status: tested against a local mock of that flow only; not yet tried "
+                                            "with a real sign-in.")
     sub = p.add_subparsers(dest="cmd", required=True)
     lg = sub.add_parser("login", help="sign in in your browser")
     lg.add_argument("--new-account", action="store_true", help="register another ChatGPT account or workspace")
