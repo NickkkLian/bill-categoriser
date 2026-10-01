@@ -129,7 +129,7 @@ ANTHROPIC_API_KEY=... python3 -B demo.py build --llm                            
 LLM_PROVIDER=openai OPENAI_API_KEY=... LLM_MODEL=your-model-id python3 -B demo.py build --llm
 LLM_PROVIDER=gemini GEMINI_API_KEY=... LLM_MODEL=your-model-id python3 -B demo.py build --llm
 LLM_PROVIDER=openai-compatible LLM_BASE_URL=http://localhost:11434/v1 LLM_MODEL=your-model-id python3 -B demo.py build --llm   # Ollama, LM Studio, vLLM…
-LLM_PROVIDER=chatgpt LLM_MODEL=your-model-id python3 -B demo.py build --llm             # your ChatGPT plan, see below
+LLM_PROVIDER=chatgpt LLM_MODEL=your-model-id python3 -B demo.py build --llm             # your ChatGPT plan (not yet tried live), see below
 ```
 
 Only Claude has a default model id; for the others you name one from your provider's list, so nothing here goes stale when a vendor renames its models. The model stays your choice: the provider and the model id are free to set, for Claude too. Only the default is fixed, and for Claude it is `claude-sonnet-5-5` (the author's apps default to Claude Opus 5.5 or Sonnet 5.5 only). Sonnet 5.5 thinks on every request and the thinking counts toward the output limit, so Claude requests get `max_tokens` 16000; the other providers keep 2048. A Claude reply that stops with `refusal` or `max_tokens` is reported as that, not parsed as half an answer. `llm.py` (CLI) and `docs/llm.js` (browser) are the same small adapter in two languages, with no SDKs. They use nothing provider-specific as a precondition — no tool calling, JSON mode or response schemas. The prompt asks for a JSON array in plain words, and the parser keeps only well-formed entries whose category is in the allowed set, so a model that ignores the instruction produces no suggestions rather than wrong ones. Keys are sent in headers only, never in a URL, and never written to disk or browser storage.
@@ -150,7 +150,9 @@ node docs/check-llm.mjs                       # the browser adapter, same contra
 
 ### Continue with ChatGPT (your ChatGPT plan, no API key)
 
-With a ChatGPT Plus or Pro plan you can run the model step on that plan instead of an API key. This is OpenAI's official **Sign in with ChatGPT** flow for open-source, locally hosted apps ([OpenAI's documentation](https://developers.openai.com/siwc/token-sharing-open-source)); no unofficial endpoint and no scraped session is involved.
+**Status: not yet tried with a real sign-in.** The flow is built from OpenAI's documentation and tested against a local mock of it. Nobody has signed in to the live service with this tool, so everything below describes what the documentation says should happen, not something that has been seen to work.
+
+This provider is meant to run the model step on a ChatGPT Plus or Pro plan instead of an API key. It follows OpenAI's official **Sign in with ChatGPT** flow for open-source, locally hosted apps ([OpenAI's documentation](https://developers.openai.com/siwc/token-sharing-open-source)); no unofficial endpoint and no scraped session is involved.
 
 ```sh
 python3 chatgpt_auth.py login        # opens your browser: sign in to ChatGPT and allow the app to use your plan
@@ -160,11 +162,11 @@ python3 chatgpt_auth.py status       # who is signed in and whether plan usage i
 python3 chatgpt_auth.py logout       # revokes the session at OpenAI, then clears the local tokens
 ```
 
-**What it needs.** An eligible ChatGPT Plus or Pro plan. Other accounts can sign in, but OpenAI answers their requests with `subscription_sharing_user_not_eligible`; that error is shown as it came, with the other providers named. Nothing switches to another provider or to an API key on its own. On Plus, the five-hour usage limit is shared with every other app that uses your plan; usage and per-app limits are at [chatgpt.com/settings/usage](https://chatgpt.com/settings/usage).
+**What it needs** (per OpenAI's documentation). An eligible ChatGPT Plus or Pro plan. Other accounts can sign in, but OpenAI answers their requests with `subscription_sharing_user_not_eligible`; that error is shown as it came, with the other providers named. Nothing switches to another provider or to an API key on its own. On Plus, the five-hour usage limit is shared with every other app that uses your plan; usage and per-app limits are at [chatgpt.com/settings/usage](https://chatgpt.com/settings/usage).
 
 **Preview limits** ([OpenAI's list](https://developers.openai.com/siwc/token-sharing-open-source/preview-limitations)). Responses API only; every request is sent with `store: false` and `stream: true`; fields such as `max_output_tokens` and `temperature` are not accepted, so this provider sends neither (the 16000 and 2048 output budgets above do not apply to it).
 
-**How it works.** The first `login` registers "Bill Bench" as an agent on your ChatGPT account (`client_id=dynamic_agent_client`, a browser callback on `http://127.0.0.1:1455/auth/callback` or another free port, PKCE, no client secret); later sign-ins reuse the client id OpenAI issued. The ID token is checked against OpenAI's published keys (RS256 signature, issuer, audience, expiry, nonce), and plan usage counts as on only when OpenAI grants `chatgpt.tokens.use.direct`. The signature check uses the standard library, because this project has no third-party dependencies; OpenAI's guide suggests a maintained JWT library where one can be used. Tokens are stored in `~/.config/bill-bench/chatgpt/` (or `CHATGPT_AUTH_DIR`), one file per account, written atomically with mode 0600; never in this repository, never printed or logged. The access token is refreshed about five minutes before it expires, and the rotating refresh token is replaced at the same time.
+**How it is built.** The first `login` registers "Bill Bench" as an agent on your ChatGPT account (`client_id=dynamic_agent_client`, a browser callback on `http://127.0.0.1:1455/auth/callback` or another free port, PKCE, no client secret); later sign-ins reuse the client id OpenAI issued. The ID token is checked against OpenAI's published keys (RS256 signature, issuer, audience, expiry, nonce), and plan usage counts as on only when OpenAI grants `chatgpt.tokens.use.direct`. The signature check uses the standard library, because this project has no third-party dependencies; OpenAI's guide suggests a maintained JWT library where one can be used. Tokens are stored in `~/.config/bill-bench/chatgpt/` (or `CHATGPT_AUTH_DIR`), one file per account, written atomically with mode 0600; never in this repository, never printed or logged. The access token is refreshed about five minutes before it expires, and the rotating refresh token is replaced at the same time.
 
 The browser page does not offer this provider: the sign-in needs a local callback listener, which a static page cannot run.
 

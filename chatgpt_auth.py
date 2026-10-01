@@ -4,6 +4,7 @@ This is OpenAI's official Sign in with ChatGPT flow for open-source, locally hos
 implemented from https://developers.openai.com/siwc/token-sharing-open-source and its sub-pages
 (sign-in, profiles-and-sessions, models-and-inference, errors-and-recovery, preview-limitations, token-reference).
 Standard library only.
+Status: tested against a local mock of the documented flow only; not yet signed in against the live service.
 
     python chatgpt_auth.py login           # opens your browser; first time registers this tool with your account
     python chatgpt_auth.py status          # who is signed in, whether plan usage is enabled (never prints a token)
