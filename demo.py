@@ -13,6 +13,7 @@ import subprocess
 import sys
 import tempfile
 import contextlib
+import csv
 import shutil
 import uuid
 import urllib.error
@@ -182,6 +183,62 @@ def read_input(path):
             if len(vals)!=4 or any(isinstance(v,dict) for v in vals):raise ValueError('input formula or unsupported columns')
             rows.append({'id':f'{si+1}:{rn}','raw':[str(v) if v is not None else '' for v in vals], 'source_file':path.name,'source_sheet':sheet,'source_row':rn,'headers':HEADERS[si]})
     return rows
+HEADER_ALIASES=[{'invoice','invoiceid','invoicenumber','billid','billnumber','reference'},
+    {'vendor','vendorname','merchant','merchantname','payee'},
+    {'date','invoicedate','billdate','billedon','transactiondate'},
+    {'amount','amountcad','total','totalcad','totalamount','grossamount'}]
+def header_map(values):
+    matches=[[i for i,v in enumerate(values) if isinstance(v,str) and norm(v) in aliases] for aliases in HEADER_ALIASES]
+    if not all(matches):return None
+    if any(len(m)!=1 for m in matches):raise ValueError('ambiguous headers: more than one column matches a required field')
+    return [m[0] for m in matches]
+def read_exports(paths):
+    """Map CSV/XLSX headers in the first five rows; never guess dates or amounts."""
+    rows=[];paths=[Path(p).resolve() for p in paths]
+    if len(paths)!=len(set(paths)):raise ValueError('the same input file was supplied more than once')
+    for fi,path in enumerate(paths,1):
+        if path.suffix.lower()=='.xlsx':workbook=xlsx.read(path)
+        elif path.suffix.lower()=='.csv':
+            text=path.read_text(encoding='utf-8-sig');workbook=None
+            for delimiter in (',',';','\t'):
+                try:parsed=list(csv.reader(text.splitlines(keepends=True),delimiter=delimiter,strict=True))
+                except csv.Error:continue
+                if any(header_map(v) is not None for v in parsed[:5]):
+                    workbook={'CSV':dict(enumerate(parsed,1))};break
+            if workbook is None:raise ValueError(path.name+': cannot map invoice, merchant, date and amount headers in first five rows')
+        else:raise ValueError(path.name+': supported input files are .csv and .xlsx')
+        for si,(sheet,source) in enumerate(workbook.items(),1):
+            if not any(any(v is not None and str(v).strip() for v in values) for values in source.values()):continue
+            mapped=None
+            for rn,values in sorted(source.items()):
+                if rn>5:break
+                mapped=header_map(values)
+                if mapped is not None:header_row=rn;headers=values;break
+            if mapped is None:raise ValueError(path.name+' / '+sheet+': cannot map invoice, merchant, date and amount headers in first five rows')
+            for rn,values in sorted(source.items()):
+                if rn<=header_row or not any(v is not None and str(v).strip() for v in values):continue
+                if any(isinstance(v,dict) for v in values):raise ValueError(path.name+' / '+sheet+': input formula at row '+str(rn))
+                if any(v is not None and str(v).strip() for v in values[len(headers):]):raise ValueError(path.name+' / '+sheet+': data outside header columns at row '+str(rn))
+                padded=values+[None]*max(0,len(headers)-len(values));raw=[]
+                for field,index in enumerate(mapped):
+                    value=padded[index]
+                    # Numeric Excel amounts such as 1.5 are valid CAD 1.50; do not round extra precision.
+                    if field==3 and isinstance(value,(int,float)) and Decimal(str(value))*100==(Decimal(str(value))*100).to_integral_value():value=f'{value:.2f}'
+                    raw.append('' if value is None else str(value))
+                rows.append({'id':f'{fi}:{si}:{rn}','raw':raw,'source_file':str(path),
+                    'source_sheet':sheet,'source_row':rn,'headers':[headers[i] for i in mapped]})
+    if not rows:raise ValueError('no bill rows found in the supplied files')
+    return rows
+def clean_files(paths,dest,high_cents=DEFAULT_HIGH_CENTS):
+    paths=[Path(p).resolve() for p in paths];dest=Path(dest)
+    if any(p==(dest/name).resolve() for p in paths for name in ('ledger.json','cleaned-bills.xlsx')):raise ValueError('output would overwrite an input file; choose another --out directory')
+    if (dest/'dirty-input.xlsx').exists():raise ValueError('output contains a generated demo; choose another --out directory')
+    model=clean(read_exports(paths),high_cents);model['input_files']=[str(p) for p in paths];model['high_amount_cents']=high_cents
+    dest.mkdir(parents=True,exist_ok=True)
+    xlsx.fill(ROOT/'templates/output-template.xlsx',dest/'cleaned-bills.xlsx',workbook_tables(model))
+    dump(dest/'ledger.json',model)
+    print('CLEAN '+json.dumps(model['reconciliation'],sort_keys=True))
+    return model
 def clean(rows,high_cents):
     records=[];changes=[];seen={};near={}
     for row in rows:
@@ -224,20 +281,22 @@ def workbook_tables(model):
     'Needs review':[[r['id'],r['status'],'; '.join(r['reasons']),r['invoice'],r['raw'][1],r['raw'][2],r['raw'][3],amt(r),*src(r)] for r in bad],
     'Duplicates':[[r['id'],r['duplicate_of'],r['invoice'],r['merchant'],dates(r),amt(r),*src(r)] for r in dups],
     'Change log':[[r['id'],r['field'],r['before'],r['after'],r['rule'],*src(r)] for r in model['changes']]}
-    rec=model['reconciliation'];end=len(bill)+4;sumrows=[]
+    rec=model['reconciliation'];end=max(5,len(bill)+4);sumrows=[]
     sumrows.append(['Retained bills',formula(f"SUM('Bills'!F5:F{end})",rec['cents']['clean']/100),len(bill),'Includes possible duplicates; resolve review before posting.'])
-    sumrows.append(['Exact duplicates excluded',formula(f"SUM('Duplicates'!F5:F{len(dups)+4})",rec['cents']['duplicate']/100),len(dups),'Excluded from Bills; original rows retained.'])
-    sumrows.append(['Unparseable: known amounts',formula(f'SUMIFS(\'Needs review\'!H5:H{len(bad)+4},\'Needs review\'!B5:B{len(bad)+4},"unparseable")',rec['cents']['unparseable']/100),rec['counts']['unparseable'],'Not included in monthly totals.'])
+    sumrows.append(['Exact duplicates excluded',formula(f"SUM('Duplicates'!F5:F{max(5,len(dups)+4)})",rec['cents']['duplicate']/100),len(dups),'Excluded from Bills; original rows retained.'])
+    sumrows.append(['Unparseable: known amounts',formula(f'SUMIFS(\'Needs review\'!H5:H{max(5,len(bad)+4)},\'Needs review\'!B5:B{max(5,len(bad)+4)},"unparseable")',rec['cents']['unparseable']/100),rec['counts']['unparseable'],'Not included in monthly totals.'])
     sumrows.append(['All known input amounts',rec['known_input_cents']/100,len(rows),'Independent source control, before duplicate exclusion.'])
     sumrows.append(['Reconciliation difference',formula('(ROUND(B5*100,0)+ROUND(B6*100,0)+ROUND(B7*100,0)-ROUND(B8*100,0))/100',0),None,'Exact cents; must equal zero. Missing amounts stay unknown.'])
     sumrows.append(['Unknown amounts',None,rec['unknown_amount_rows'],'Blank amounts are unknown, never treated as real zero.'])
     sumrows.append(['Review rows',None,len(bad),'Every flagged row, including duplicates.'])
     sumrows.append(['MONTHLY TOTALS',None,None,'Retained bills only; CAD.'])
-    for mo in range(1,13):
-        start=dt.date(2025,mo,1);stop=dt.date(2026,1,1) if mo==12 else dt.date(2025,mo+1,1)
-        relevant=[r for r in bill if r['date'].startswith(f'2025-{mo:02d}')]
+    months=sorted({r['date'][:7] for r in bill}) if 'input_files' in model else [f'2025-{mo:02d}' for mo in range(1,13)]
+    for month in months:
+        year,mo=map(int,month.split('-'))
+        start=dt.date(year,mo,1);stop=dt.date(year+1,1,1) if mo==12 else dt.date(year,mo+1,1)
+        relevant=[r for r in bill if r['date'].startswith(month)]
         s=(start-dt.date(1899,12,30)).days;e=(stop-dt.date(1899,12,30)).days
-        sumrows.append([f'2025-{mo:02d}',formula(f'SUMIFS(\'Bills\'!F5:F{end},\'Bills\'!C5:C{end},">={s}",\'Bills\'!C5:C{end},"<{e}")',sum(r['cents'] for r in relevant)/100),len(relevant),None])
+        sumrows.append([month,formula(f'SUMIFS(\'Bills\'!F5:F{end},\'Bills\'!C5:C{end},">={s}",\'Bills\'!C5:C{end},"<{e}")',sum(r['cents'] for r in relevant)/100),len(relevant),None])
     sumrows.append(['CATEGORY TOTALS',None,None,None])
     for category in sorted(set(CATEGORY.values())):
         relevant=[r for r in bill if r['category']==category]
@@ -276,29 +335,36 @@ def normal(value):
     if value=='':return None
     return value
 def verify(dest,repeat=True,expected_high_cents=DEFAULT_HIGH_CENTS):
-    dest=Path(dest);source=read_input(dest/'dirty-input.xlsx');got=json.loads((dest/'ledger.json').read_text(encoding='utf-8'))
+    dest=Path(dest);got=json.loads((dest/'ledger.json').read_text(encoding='utf-8'));imported='input_files' in got
+    source=read_exports(got['input_files']) if imported else read_input(dest/'dirty-input.xlsx')
     assert got.get('high_amount_cents')==expected_high_cents,'configured high-amount threshold does not match the built output'
-    expected=clean(source,got['high_amount_cents']);expected['seed']=got['seed'];expected['high_amount_cents']=got['high_amount_cents']
+    expected=clean(source,got['high_amount_cents']);expected['high_amount_cents']=got['high_amount_cents']
+    if imported:expected['input_files']=got['input_files']
+    else:expected['seed']=got['seed']
     assert got==expected,'ledger differs from source-derived rows, reasons or changes'
     ids=[r['id'] for r in got['records']];assert len(ids)==len(set(ids))==len(source),'row identity coverage'
-    assert len(source)==125,'expected 125 synthetic input rows'
+    if not imported:assert len(source)==125,'expected 125 synthetic input rows'
     rec=got['reconciliation'];assert sum(rec['cents'].values())==rec['known_input_cents'],'amount reconciliation'
-    assert sum(rec['counts'].values())==125,'partition count'
+    assert sum(rec['counts'].values())==len(source),'partition count'
     review_count=sum(bool(r['reasons']) for r in got['records'])
-    if got['seed']==42 and expected_high_cents==DEFAULT_HIGH_CENTS:
+    if not imported and got['seed']==42 and expected_high_cents==DEFAULT_HIGH_CENTS:
         assert review_count==39,'default CAD 2,500 threshold must produce exactly 39 review rows'
     # Independent raw amount arithmetic, separate from the category/disposition logic.
-    known=sum(money(r['raw'][3]) for r in source if re.fullmatch(r'(?:\(?CAD |\$)?-?(?:\d+|\d{1,3}(?:,\d{3})+)\.\d{2}\)?',r['raw'][3]))
+    known=0
+    for row in source:
+        try:known+=money(row['raw'][3])
+        except ValueError:pass
     assert known==rec['known_input_cents'],'raw control total'
     scheme_pattern=re.compile(rb'<a:(?:theme|clrScheme|fontScheme|fmtScheme)\b[^>]*\bname="([^"]+)"')
-    for book in (ROOT/'templates/input-template.xlsx',ROOT/'templates/output-template.xlsx',dest/'dirty-input.xlsx',dest/'cleaned-bills.xlsx'):
+    books=(ROOT/'templates/output-template.xlsx',dest/'cleaned-bills.xlsx') if imported else (ROOT/'templates/input-template.xlsx',ROOT/'templates/output-template.xlsx',dest/'dirty-input.xlsx',dest/'cleaned-bills.xlsx')
+    for book in books:
         parts=xlsx.files(book);schemes=[]
         for member,data in parts.items():
             assert b'<!--' not in data and b'-->' not in data,book.name+': XML comment found in '+member
             schemes.extend((member,name) for name in scheme_pattern.findall(data))
         assert schemes,book.name+': no named theme schemes found'
         assert all(name==b'Office' for _,name in schemes),book.name+': non-Office scheme name: '+repr(schemes)
-    print('PASS all named theme schemes are Office and no XLSX member contains XML comments (4/4 workbooks)')
+    print(f'PASS all named theme schemes are Office and no XLSX member contains XML comments ({len(books)}/{len(books)} workbooks)')
     output=xlsx.read(dest/'cleaned-bills.xlsx');tables=workbook_tables(expected)
     assert set(output)==set(tables),'worksheet set'
     for sheet,records in tables.items():
@@ -308,7 +374,7 @@ def verify(dest,repeat=True,expected_high_cents=DEFAULT_HIGH_CENTS):
             a=actual.get(rn,[]);b=[normal(v) for v in record]
             a=[normal(v) for v in a];a.extend([None]*(len(b)-len(a)))
             assert a==b,f'{sheet}!row {rn}: value/formula mismatch'
-    print('PASS source coverage 125/125; disjoint partitions; known amounts reconcile to cents')
+    print(f'PASS source coverage {len(source)}/{len(source)}; disjoint partitions; known amounts reconcile to cents')
     print('PASS all 5 workbook sheets: rows, values, formulas, review reasons and field changes')
     # Evaluate this one reconciliation formula from stored summary inputs.
     # Decimal ROUND_HALF_UP matches Excel ROUND for positive and negative ties.
@@ -329,8 +395,9 @@ def verify(dest,repeat=True,expected_high_cents=DEFAULT_HIGH_CENTS):
     try:date('03/04/2025')
     except ValueError:pass
     else:raise AssertionError('ambiguous date accepted')
-    assert any('possible duplicate' in ';'.join(r['reasons']) and r['status']=='clean' for r in got['records'])
-    assert any(r['raw'][1].startswith('=') for r in got['records'])
+    if not imported:
+        assert any('possible duplicate' in ';'.join(r['reasons']) and r['status']=='clean' for r in got['records'])
+        assert any(r['raw'][1].startswith('=') for r in got['records'])
     print('PASS zero/refund/invalid amount/ambiguous date/near duplicate/formula-like literal boundaries')
     cache=load_cache();validate_cache(cache)
     if (dest/'llm-suggestions.json').exists():
@@ -340,11 +407,14 @@ def verify(dest,repeat=True,expected_high_cents=DEFAULT_HIGH_CENTS):
     print(f'PASS LLM cache well-formed ({len(cache["entries"])} entries) and suggestions, if present, are advisory and match the cache')
     if repeat:
         with scratch('.check-') as temp:
-            p=Path(temp);build(p/'a',got['seed'],got['high_amount_cents']);build(p/'b',got['seed'],got['high_amount_cents'])
-            for f in ('dirty-input.xlsx','cleaned-bills.xlsx'):
+            p=Path(temp)
+            if imported:
+                clean_files(got['input_files'],p/'a',got['high_amount_cents']);clean_files(got['input_files'],p/'b',got['high_amount_cents'])
+            else:build(p/'a',got['seed'],got['high_amount_cents']);build(p/'b',got['seed'],got['high_amount_cents'])
+            for f in (('cleaned-bills.xlsx',) if imported else ('dirty-input.xlsx','cleaned-bills.xlsx')):
                 assert xlsx.files(p/'a'/f)==xlsx.files(p/'b'/f)==xlsx.files(dest/f),'reproducibility XLSX members '+f
             assert (p/'a/ledger.json').read_bytes()==(p/'b/ledger.json').read_bytes()==(dest/'ledger.json').read_bytes(),'reproducibility ledger.json (UTF-8/LF bytes)'
-            print('PASS seed '+str(got['seed'])+': two rebuilds and delivered files match (2/2 XLSX member sets + contents; 1/1 UTF-8/LF JSON bytes)')
+            print('PASS '+('imported files' if imported else 'seed '+str(got['seed']))+': two rebuilds and delivered files match (XLSX member sets + contents; UTF-8/LF JSON bytes)')
     print('CHECK PASS')
 def break_demo(dest):
     source=Path(dest)
@@ -391,12 +461,16 @@ def break_cache():
         assert result.returncode==1 and 'category outside the allowed set' in result.stdout,'cache mutation did not trigger the cache validation'
         print('EXPECTED CACHE FAILURE OBSERVED; the real cache is untouched')
 def main():
-    p=argparse.ArgumentParser();p.add_argument('command',choices=['build','check','break','eval']);p.add_argument('--out',type=Path,default=ROOT/'output');p.add_argument('--seed',type=int,default=42);p.add_argument('--high-cad',type=threshold_cents,default=DEFAULT_HIGH_CENTS,metavar='AMOUNT');p.add_argument('--no-repeat',action='store_true');p.add_argument('--llm',action='store_true',help='build: ask a model about uncategorised merchants (LLM_PROVIDER anthropic|openai|gemini|openai-compatible|chatgpt, default anthropic; needs that provider\'s key, or for chatgpt a sign-in with `python chatgpt_auth.py login`, and, except for Claude, LLM_MODEL; advisory, cached); eval: populate the eval cache');a=p.parse_args()
+    p=argparse.ArgumentParser();p.add_argument('command',choices=['build','clean','check','break','eval']);p.add_argument('files',nargs='*',type=Path,help='clean: CSV/XLSX exports in processing order');p.add_argument('--out',type=Path);p.add_argument('--seed',type=int,default=42);p.add_argument('--high-cad',type=threshold_cents,default=DEFAULT_HIGH_CENTS,metavar='AMOUNT');p.add_argument('--no-repeat',action='store_true');p.add_argument('--llm',action='store_true',help='build: ask a model about uncategorised merchants (LLM_PROVIDER anthropic|openai|gemini|openai-compatible|chatgpt, default anthropic; needs that provider\'s key, or for chatgpt a sign-in with `python chatgpt_auth.py login`, and, except for Claude, LLM_MODEL; advisory, cached); eval: populate the eval cache');a=p.parse_args()
+    if a.command=='clean' and (not a.files or a.llm):p.error('clean requires CSV/XLSX files and does not accept --llm (offline rules only)')
+    if a.command!='clean' and a.files:p.error('input files are only accepted by clean')
+    if a.out is None:a.out=Path('output-clean') if a.command=='clean' else ROOT/'output'
     try:
         if a.command=='build':build(a.out,a.seed,a.high_cad,a.llm)
+        elif a.command=='clean':clean_files(a.files,a.out,a.high_cad)
         elif a.command=='check':verify(a.out,not a.no_repeat,a.high_cad)
         elif a.command=='eval':return eval_llm(a.llm)
         else:break_demo(a.out);break_cache()
-    except (AssertionError,ValueError,KeyError,OSError) as e:print('FAIL: '+str(e));return 1
+    except (AssertionError,ValueError,KeyError,OSError,csv.Error) as e:print('FAIL: '+str(e));return 1
     return 0
 if __name__=='__main__':sys.exit(main())

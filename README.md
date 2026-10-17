@@ -1,5 +1,16 @@
 # Bill Bench
 
+**The delivered synthetic sample reconciles: 125 input rows, 114 retained, 3 exact duplicates separated, 8 unparseable. Possible duplicates stay in Bills and are flagged; malformed amounts are never repaired.**
+
+Clean your own CSV/XLSX exports with the same rules, offline:
+
+```sh
+python3 -B demo.py clean bills.csv another-export.xlsx --out output-clean
+python3 -B demo.py check --out output-clean
+```
+
+[Open the sample workbook](output/cleaned-bills.xlsx) · [Source-derived ledger and totals](output/ledger.json)
+
 ![Bill Bench](.github/header.png)
 
 **Clean, categorise and reconcile a year of bills in the browser — every row stays traceable.**
@@ -25,6 +36,8 @@ python3 -B demo.py check
 ```
 
 `build` writes `output/dirty-input.xlsx`, `output/ledger.json` and `output/cleaned-bills.xlsx`; `check` verifies them (the delivered files are already built, so you can open [the workbook](output/cleaned-bills.xlsx) first). On Windows use `python` if that is your Python command.
+
+`clean <files...>` reads your exports in argument order and writes `ledger.json` and the same five-sheet `cleaned-bills.xlsx`, with monthly totals for the months present in your retained bills. It defaults to `output-clean/` in your current directory. It uses the existing exact merchant rules: a merchant outside the alias map stays `Uncategorised` for review. It makes no model calls. Use `--high-cad` on both `clean` and `check` to change the review threshold. `check` re-reads the original input paths recorded in the ledger, checks every output cell/formula and rebuilds twice; keep those files available and unchanged. Absolute source paths are recorded for traceability, including when two files share a name. The output cannot overwrite an input or the generated demo folder.
 
 | Seed 42 result | Rows | Known amount (CAD) |
 | --- | ---: | ---: |
@@ -172,7 +185,20 @@ The browser page does not offer this provider: the sign-in needs a local callbac
 
 ## Supported layouts
 
-The CLI reader and the browser's strict mode accept the demo layout only: three sheets named `Export A / B / C` whose fourth row holds one of the three known header sets (`Invoice / Vendor / Date / Amount`, `Bill ID / Merchant name / Invoice date / Total CAD`, `Reference / Payee / Billed on / Gross amount`). For your own files the browser also tries a tolerant mapping: it looks in the first five rows of each sheet for headers containing words like *invoice*, *merchant*/*vendor*/*payee*, *date* and *amount*/*total*, reports which columns it matched, and rejects a sheet it cannot map with the headers it found. Text dates and text or numeric amounts are read; Excel serial dates, PDFs, macros and non-CAD amounts are not.
+`build` and the browser's strict mode use the demo layout: three sheets named `Export A / B / C` whose fourth row holds one of the three known header sets (`Invoice / Vendor / Date / Amount`, `Bill ID / Merchant name / Invoice date / Total CAD`, `Reference / Payee / Billed on / Gross amount`).
+
+`clean` accepts UTF-8 CSV (with or without BOM; comma, semicolon or tab delimiters) and XLSX with arbitrary sheet names and column order. It looks in the first five rows of each nonempty sheet for one unambiguous column per field. Header aliases ignore case, spaces and punctuation:
+
+| Field | Accepted headers |
+| --- | --- |
+| Invoice | Invoice, Invoice ID, Invoice number, Bill ID, Bill number, Reference |
+| Merchant | Vendor, Vendor name, Merchant, Merchant name, Payee |
+| Date | Date, Invoice date, Bill date, Billed on, Transaction date |
+| CAD amount | Amount, Amount CAD, Total, Total CAD, Total amount, Gross amount |
+
+Additional labelled metadata columns are ignored; data beyond the header width is rejected. Empty rows/sheets are skipped. A nonempty sheet without a matching header, ambiguous columns or actual formula cells stops the import before writing outputs. CSV source rows count logical records, so quoted multiline fields stay together. Numeric Excel amounts are accepted to the cent without rounding extra precision. Other parsing boundaries stay the same: explicit text dates only, CAD only, no Excel serial dates, PDFs, macros or guessed slash-date order. Unsupported dates/amounts stay unparseable with their original values in the review queue.
+
+The browser's tolerant mapping remains separate: it searches header words in the first five rows and reports matches. The existing synthetic parity checks still cover the shared cleaning rules and sample workbook; they do not prove every uploaded layout has identical mapping in both interfaces.
 
 ## Where this is not suitable
 
@@ -180,10 +206,12 @@ This is not a general Excel migration tool and not an accounting system. It does
 
 **Not verified here:** native Windows and Linux runs of the checker (only macOS was run locally; CI covers Ubuntu, Windows and macOS on Python 3.9 and 3.13 — see the Actions tab); browser exports that include reviewer decisions or rules cannot be checked by `demo.py check`, only zero-decision exports can; the LLM step has been run and `docs/llm-cache.json` is the whole of what that run left behind — the file records the provider, model and date, and nothing in this repository shows that a request went over the network, so a hand-written cache would be indistinguishable from this one; the tolerant header mapping was tested on synthetic files only; the checker shares some rules with the producer, so independent review remains useful.
 
+The CLI intake tests use separate file layouts and policy assertions (`python3 -B -m unittest discover -s tests -p test_clean.py -v`). A private generator and ground truth can be kept outside this repository and used to score `clean` without exposing truth to the cleaner. Passing synthetic fixtures is not evidence of beating a plain model; no new model comparison is claimed here.
+
 ## Repository layout
 
 ```
-demo.py                 CLI: build / check / break / eval (Python 3.9+, standard library only)
+demo.py                 CLI: clean <files...> / build / check / break / eval (Python 3.9+, standard library only)
 xlsx_io.py              minimal OOXML reader and template filler
 llm.py                  the CLI's model adapter: Claude, OpenAI, Gemini, OpenAI-compatible, ChatGPT plan
 chatgpt_auth.py         Continue with ChatGPT: sign-in, token storage and refresh, Responses stream
