@@ -1,27 +1,26 @@
 # Bill Bench
 
-**The delivered synthetic sample reconciles: 125 input rows, 114 retained, 3 exact duplicates separated, 8 unparseable. Possible duplicates stay in Bills and are flagged; malformed amounts are never repaired.**
+**Clean and reconcile CSV/XLSX bills, with a source row behind every retained amount.**
 
-Clean your own CSV/XLSX exports with the same rules, offline:
+For people reviewing inconsistent bill exports: normalise merchants, separate exact duplicates and send uncertain rows to a review queue before exporting a five-sheet workbook.
+
+**[Try the live demo](https://nickkklian.github.io/bill-categoriser/?demo=1)** · [Open the sample workbook](output/cleaned-bills.xlsx) · [Inspect its ledger](output/ledger.json)
+
+The bundled sample is synthetic: **125 input rows = 114 retained + 3 exact duplicates + 8 unparseable**. Possible duplicates stay retained and flagged; malformed amounts are never guessed.
+
+[![Bill Bench: a reconciliation bar accounts for every input row above the review queue and checks](docs/screenshot-overview.png)](https://nickkklian.github.io/bill-categoriser/?demo=1)
+
+## Quick start
+
+Use the browser demo with no account or key, or run the offline Python CLI (Python 3.9+, standard library only):
 
 ```sh
-python3 -B demo.py clean bills.csv another-export.xlsx --out output-clean
-python3 -B demo.py check --out output-clean
+git clone https://github.com/NickkkLian/bill-categoriser.git
+cd bill-categoriser
+python3 -B demo.py check
 ```
 
-[Open the sample workbook](output/cleaned-bills.xlsx) · [Source-derived ledger and totals](output/ledger.json)
-
-![Bill Bench](.github/header.png)
-
-**Clean, categorise and reconcile a year of bills in the browser — every row stays traceable.**
-
-Three inconsistent Excel exports go in; a five-sheet month-end review workbook comes out. Rules normalise merchants, dates and amounts, exact duplicates are separated, uncertain rows are flagged for a person instead of guessed, and the totals reconcile to the cent. The same rules run as a Python CLI and as a browser app, and a checker proves the two agree.
-
-> This is a runnable demonstration with **synthetic data** (125 generated rows, seed 42). It is not a client case study, and no bill ever leaves your machine.
-
-[![Check](https://img.shields.io/github/actions/workflow/status/NickkkLian/bill-categoriser/check.yml?branch=main&label=check&style=flat-square&labelColor=2f5859)](https://github.com/NickkkLian/bill-categoriser/actions/workflows/check.yml)
-
-![Bill Bench overview: the reconciliation panel, partition cards, review workload and in-page checks](docs/screenshot-overview.png)
+To clean your own exports, run `python3 -B demo.py clean bills.csv another-export.xlsx --out output-clean`, then `python3 -B demo.py check --out output-clean`. Keep the original files unchanged for verification. The rules support CAD and explicit dates; unknown merchants require review. The default workflow processes files locally. Selecting your own model provider sends a suggestion request to that provider; model output is advisory and never silently recategorises a bill.
 
 ## Try it
 
