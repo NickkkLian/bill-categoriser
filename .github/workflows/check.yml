@@ -11,7 +11,8 @@ jobs:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
         python: ['3.9', '3.13']
-    runs-on: ${{ matrix.os }}
+    # ubuntu-latest is Ubuntu 26.04, which has no Python 3.9 build; keep the 3.9 job on 24.04 so the support claim stays tested
+    runs-on: ${{ (matrix.os == 'ubuntu-latest' && matrix.python == '3.9') && 'ubuntu-24.04' || matrix.os }}
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v7
@@ -42,7 +43,7 @@ jobs:
   llm-adapters:
     # llm.py and docs/llm.js against a local mock of each provider (Anthropic, OpenAI, Gemini, OpenAI-compatible),
     # plus `demo.py build --llm` end to end per provider. No keys, no network beyond 127.0.0.1.
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04  # Python 3.9 is not available on ubuntu-latest (26.04)
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v7
