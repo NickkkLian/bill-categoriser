@@ -1,11 +1,14 @@
 """Offline file intake and the existing cleaning policy, exercised through the CLI."""
 import csv
+import contextlib
+import io
 import json
 from pathlib import Path
 import subprocess
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 from xml.etree import ElementTree as ET
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -120,6 +123,92 @@ class TestClean(unittest.TestCase):
                     if isinstance(v, dict):
                         self.assertNotRegex(v['formula'], r'[A-Z]5:[A-Z]4')
         self.run_cli('check', '--out', out)
+
+    def test_browser_rules_reuse_and_verification_keep_the_recorded_policy(self):
+        rules = {'aliases': [{'alias': 'Cedar Stationery', 'category': 'Supplies'},
+                             {'alias': 'Demo Supply 01', 'category': 'Rent'}], 'high_cad': 10.50}
+        policy = self.base / 'rules.json'
+        policy.write_text(json.dumps(rules))
+        january = self.csv('january.csv', [['Invoice', 'Vendor', 'Date', 'Amount'],
+            ['a', ' CEDAR-STATIONERY ', '2026-01-03', '12.30'],
+            ['b', 'DEMO SUPPLY 01', '2026-01-04', '2.00']])
+        out = self.base / 'january'
+        result = self.run_cli('clean', january, '--rules', policy, '--verify', '--out', out)
+        self.assertIn('CHECK PASS', result.stdout)
+        self.assertIn('two rebuilds and delivered files match', result.stdout)
+        model = json.loads((out / 'ledger.json').read_text())
+        self.assertEqual(model['high_amount_cents'], 1050)
+        self.assertEqual(model['rules'], rules)
+        self.assertEqual([r['category'] for r in model['records']], ['Supplies', 'Rent'])
+        self.assertEqual(model['records'][0]['merchant'], 'Cedar Stationery')
+        self.assertTrue(any('high amount' in s for s in model['records'][0]['reasons']))
+        self.assertTrue(any(c['rule'] == 'reviewer alias rule' for c in model['changes']))
+        self.run_cli('check', '--out', out, '--rules', policy)
+        self.run_cli('check', '--out', out, '--high-cad', '11', ok=False)
+        rules['aliases'][0]['category'] = 'Software'
+        policy.write_text(json.dumps(rules))
+        mismatch = self.run_cli('check', '--out', out, '--rules', policy, ok=False)
+        self.assertIn('supplied rules differ', mismatch.stdout)
+        policy.unlink()
+        self.run_cli('check', '--out', out)  # The frozen policy travels with the ledger.
+        rules['aliases'][0]['category'] = 'Supplies'
+        policy.write_text(json.dumps(rules))
+        february = self.csv('february.csv', [['Invoice', 'Vendor', 'Date', 'Amount'],
+            ['c', 'cedar stationery', '2026-02-02', '3.00']])
+        next_out = self.base / 'february'
+        self.run_cli('clean', february, '--rules', policy, '--verify', '--out', next_out)
+        self.assertEqual(json.loads((next_out / 'ledger.json').read_text())['records'][0]['category'], 'Supplies')
+
+    def test_rules_reject_bad_policy_before_writing_output(self):
+        path = self.csv('one.csv', [['Invoice', 'Vendor', 'Date', 'Amount'],
+                                  ['i', 'Cedar Stationery', '2026-01-01', '1.00']])
+        policy = self.base / 'rules.json'
+        invalid = [[], {'aliases': [], 'high_cad': -1},
+            {'aliases': [], 'high_cad': 1.001}, {'aliases': [], 'high_cad': True},
+            {'aliases': [{'alias': 'Cedar', 'category': 'Invented'}], 'high_cad': 10},
+            {'aliases': [{'alias': '!!!', 'category': 'Supplies'}], 'high_cad': 10},
+            {'aliases': [{'alias': 'Cedar', 'category': 'Supplies'},
+                         {'alias': 'CEDAR!', 'category': 'Rent'}], 'high_cad': 10}]
+        out = self.base / 'bad-policy'
+        for value in invalid:
+            with self.subTest(value=value):
+                policy.write_text(json.dumps(value))
+                self.run_cli('clean', path, '--rules', policy, '--out', out, ok=False)
+                self.assertFalse(out.exists(), 'invalid policy must not produce a workbook')
+        policy.write_text(json.dumps({'aliases': [], 'high_cad': 10}))
+        result = self.run_cli('clean', path, '--rules', policy, '--high-cad', '20', '--out', out, ok=False)
+        self.assertIn('conflicts', result.stdout)
+        self.assertFalse(out.exists())
+        # A rule document is also an input and must not be overwritten by the ledger.
+        target = self.base / 'ledger.json'
+        target.write_bytes(policy.read_bytes())
+        before = target.read_bytes()
+        self.run_cli('clean', path, '--rules', target, '--out', self.base, ok=False)
+        self.assertEqual(target.read_bytes(), before)
+
+    def test_clean_verify_rejects_a_damaged_written_workbook(self):
+        path = self.csv('one.csv', [['Invoice', 'Vendor', 'Date', 'Amount'],
+                                  ['i', 'Demo Supply 01', '2026-01-01', '1.00']])
+        out = self.base / 'damaged'
+        original_clean = demo.clean_files
+        def corrupt(*args):
+            model = original_clean(*args)
+            workbook = Path(args[1]) / 'cleaned-bills.xlsx'
+            parts = xlsx.files(workbook)
+            sheet_path = xlsx.sheet_paths(parts)['Bills']
+            sheet = ET.fromstring(parts[sheet_path])
+            rows = sheet.find(xlsx.tag('sheetData'))
+            rows.remove(next(r for r in rows if r.get('r') == '5'))
+            parts[sheet_path] = ET.tostring(sheet)
+            xlsx.save_parts(workbook, parts)
+            return model
+        output = io.StringIO()
+        with patch.object(demo, 'clean_files', corrupt), patch.object(sys, 'argv',
+                ['demo.py', 'clean', str(path), '--verify', '--out', str(out)]), contextlib.redirect_stdout(output):
+            status = demo.main()
+        self.assertEqual(status, 1)
+        self.assertIn('FAIL: Bills: row count', output.getvalue())
+        self.assertNotIn('CHECK PASS', output.getvalue())
 
     def test_clean_default_output_does_not_replace_delivered_sample(self):
         path = self.csv('one.csv', [['Invoice', 'Vendor', 'Date', 'Amount'], ['i', 'v', '2026-01-01', '0.00']])

@@ -127,6 +127,31 @@ def threshold_cents(raw):
     cents=value*100
     if value<0 or cents!=cents.to_integral_value():raise argparse.ArgumentTypeError('high threshold must be non-negative with at most two decimals')
     return int(cents)
+def validate_rules(value):
+    """Accept the alias/threshold document written by the browser's Export rules JSON."""
+    if not isinstance(value,dict) or set(value)!={'aliases','high_cad'}:
+        raise ValueError('rules must contain exactly aliases and high_cad, as exported by the browser')
+    if not isinstance(value['aliases'],list):raise ValueError('rules aliases must be a list')
+    high=value['high_cad']
+    if isinstance(high,bool) or not isinstance(high,(int,float)):
+        raise ValueError('rules high_cad must be a non-negative CAD number with at most two decimals')
+    try:high_cents=threshold_cents(high)
+    except argparse.ArgumentTypeError as e:raise ValueError('rules: '+str(e)) from e
+    aliases=[];seen=set()
+    for item in value['aliases']:
+        if not isinstance(item,dict) or set(item)!={'alias','category'}:
+            raise ValueError('each rule must contain exactly alias and category')
+        alias=item['alias'];category=item['category']
+        if not isinstance(alias,str) or not alias.strip() or not norm(alias):
+            raise ValueError('rule alias must contain letters or digits after normalisation')
+        if category not in CATEGORIES+['Uncategorised']:
+            raise ValueError('rule category outside the allowed set')
+        key=norm(alias)
+        if key in seen:raise ValueError('rules contain duplicate normalised alias: '+alias)
+        seen.add(key);aliases.append({'alias':alias.strip(),'category':category})
+    return {'aliases':aliases,'high_cad':high_cents//100 if high_cents%100==0 else high_cents/100}
+def load_rules(path):
+    return validate_rules(json.loads(Path(path).read_text(encoding='utf-8-sig')))
 def threshold_label(cents):
     value=Decimal(cents)/100
     return f'{value:,.2f}'.rstrip('0').rstrip('.')
@@ -229,17 +254,25 @@ def read_exports(paths):
                     'source_sheet':sheet,'source_row':rn,'headers':[headers[i] for i in mapped]})
     if not rows:raise ValueError('no bill rows found in the supplied files')
     return rows
-def clean_files(paths,dest,high_cents=DEFAULT_HIGH_CENTS):
+def clean_files(paths,dest,high_cents=DEFAULT_HIGH_CENTS,rules=None):
     paths=[Path(p).resolve() for p in paths];dest=Path(dest)
     if any(p==(dest/name).resolve() for p in paths for name in ('ledger.json','cleaned-bills.xlsx')):raise ValueError('output would overwrite an input file; choose another --out directory')
     if (dest/'dirty-input.xlsx').exists():raise ValueError('output contains a generated demo; choose another --out directory')
-    model=clean(read_exports(paths),high_cents);model['input_files']=[str(p) for p in paths];model['high_amount_cents']=high_cents
+    if rules is not None:
+        rules=validate_rules(rules)
+        if threshold_cents(rules['high_cad'])!=high_cents:raise ValueError('rules high_cad conflicts with the configured high-amount threshold')
+    model=clean(read_exports(paths),high_cents,rules);model['input_files']=[str(p) for p in paths];model['high_amount_cents']=high_cents
+    if rules is not None:model['rules']=rules
     dest.mkdir(parents=True,exist_ok=True)
     xlsx.fill(ROOT/'templates/output-template.xlsx',dest/'cleaned-bills.xlsx',workbook_tables(model))
     dump(dest/'ledger.json',model)
     print('CLEAN '+json.dumps(model['reconciliation'],sort_keys=True))
     return model
-def clean(rows,high_cents):
+def clean(rows,high_cents,rules=None):
+    aliases=dict(ALIASES);categories=dict(CATEGORY);reviewer_categories=set()
+    if rules is not None:
+        for item in validate_rules(rules)['aliases']:
+            aliases[norm(item['alias'])]=item['alias'];categories[item['alias']]=item['category'];reviewer_categories.add(item['alias'])
     records=[];changes=[];seen={};near={}
     for row in rows:
         invoice,raw_m,raw_d,raw_a=row['raw'];reasons=[]
@@ -247,9 +280,9 @@ def clean(rows,high_cents):
             if before!=after:changes.append({'id':row['id'],'field':field,'before':before,'after':after,'rule':rule,'source_file':row['source_file'],'source_sheet':row['source_sheet'],'source_row':row['source_row']})
         for old,new in zip(row['headers'],['invoice','merchant','date','amount_cad']):change('header',old,new,'header alias map')
         invoice2=invoice.strip();change('invoice',invoice,invoice2,'trim surrounding whitespace')
-        merchant=ALIASES.get(re.sub(r'[^a-z0-9]','',raw_m.lower()),raw_m.strip())
+        merchant=aliases.get(norm(raw_m),raw_m.strip())
         change('merchant',raw_m,merchant,'synthetic merchant alias map')
-        cat=CATEGORY.get(merchant,'Uncategorised');change('category','',cat,'exact merchant rule' if cat!='Uncategorised' else 'no rule; manual review')
+        cat=categories.get(merchant,'Uncategorised');change('category','',cat,('reviewer alias rule' if merchant in reviewer_categories else 'exact merchant rule') if cat!='Uncategorised' else 'no rule; manual review')
         if cat=='Uncategorised':reasons.append('unmapped merchant')
         try:cents=money(raw_a);change('amount',raw_a,f'{Decimal(cents)/100:.2f}','CAD symbols, grouping and refund sign')
         except ValueError as e:cents=None;reasons.append(str(e))
@@ -334,11 +367,16 @@ def normal(value):
     if isinstance(value,dt.date):return (value-dt.date(1899,12,30)).days
     if value=='':return None
     return value
-def verify(dest,repeat=True,expected_high_cents=DEFAULT_HIGH_CENTS):
+def verify(dest,repeat=True,expected_high_cents=None,expected_rules=None):
     dest=Path(dest);got=json.loads((dest/'ledger.json').read_text(encoding='utf-8'));imported='input_files' in got
+    rules=validate_rules(got['rules']) if 'rules' in got else None
+    if expected_rules is not None:assert rules==validate_rules(expected_rules),'supplied rules differ from the ledger rules snapshot'
+    if expected_high_cents is None:expected_high_cents=threshold_cents(rules['high_cad']) if rules is not None else DEFAULT_HIGH_CENTS
+    if rules is not None:assert threshold_cents(rules['high_cad'])==expected_high_cents,'rules high_cad conflicts with the configured high-amount threshold'
     source=read_exports(got['input_files']) if imported else read_input(dest/'dirty-input.xlsx')
     assert got.get('high_amount_cents')==expected_high_cents,'configured high-amount threshold does not match the built output'
-    expected=clean(source,got['high_amount_cents']);expected['high_amount_cents']=got['high_amount_cents']
+    expected=clean(source,got['high_amount_cents'],rules);expected['high_amount_cents']=got['high_amount_cents']
+    if rules is not None:expected['rules']=rules
     if imported:expected['input_files']=got['input_files']
     else:expected['seed']=got['seed']
     assert got==expected,'ledger differs from source-derived rows, reasons or changes'
@@ -409,7 +447,7 @@ def verify(dest,repeat=True,expected_high_cents=DEFAULT_HIGH_CENTS):
         with scratch('.check-') as temp:
             p=Path(temp)
             if imported:
-                clean_files(got['input_files'],p/'a',got['high_amount_cents']);clean_files(got['input_files'],p/'b',got['high_amount_cents'])
+                clean_files(got['input_files'],p/'a',got['high_amount_cents'],rules);clean_files(got['input_files'],p/'b',got['high_amount_cents'],rules)
             else:build(p/'a',got['seed'],got['high_amount_cents']);build(p/'b',got['seed'],got['high_amount_cents'])
             for f in (('cleaned-bills.xlsx',) if imported else ('dirty-input.xlsx','cleaned-bills.xlsx')):
                 assert xlsx.files(p/'a'/f)==xlsx.files(p/'b'/f)==xlsx.files(dest/f),'reproducibility XLSX members '+f
@@ -461,14 +499,27 @@ def break_cache():
         assert result.returncode==1 and 'category outside the allowed set' in result.stdout,'cache mutation did not trigger the cache validation'
         print('EXPECTED CACHE FAILURE OBSERVED; the real cache is untouched')
 def main():
-    p=argparse.ArgumentParser();p.add_argument('command',choices=['build','clean','check','break','eval']);p.add_argument('files',nargs='*',type=Path,help='clean: CSV/XLSX exports in processing order');p.add_argument('--out',type=Path);p.add_argument('--seed',type=int,default=42);p.add_argument('--high-cad',type=threshold_cents,default=DEFAULT_HIGH_CENTS,metavar='AMOUNT');p.add_argument('--no-repeat',action='store_true');p.add_argument('--llm',action='store_true',help='build: ask a model about uncategorised merchants (LLM_PROVIDER anthropic|openai|gemini|openai-compatible|chatgpt, default anthropic; needs that provider\'s key, or for chatgpt a sign-in with `python chatgpt_auth.py login`, and, except for Claude, LLM_MODEL; advisory, cached); eval: populate the eval cache');a=p.parse_args()
+    p=argparse.ArgumentParser();p.add_argument('command',choices=['build','clean','check','break','eval']);p.add_argument('files',nargs='*',type=Path,help='clean: CSV/XLSX exports in processing order');p.add_argument('--out',type=Path);p.add_argument('--seed',type=int,default=42);p.add_argument('--high-cad',type=threshold_cents,default=None,metavar='AMOUNT');p.add_argument('--no-repeat',action='store_true');p.add_argument('--llm',action='store_true',help='build: ask a model about uncategorised merchants (LLM_PROVIDER anthropic|openai|gemini|openai-compatible|chatgpt, default anthropic; needs that provider\'s key, or for chatgpt a sign-in with `python chatgpt_auth.py login`, and, except for Claude, LLM_MODEL; advisory, cached); eval: populate the eval cache');p.add_argument('--verify',action='store_true',help='clean: run the existing source and workbook checks immediately, using the same high-amount threshold');p.add_argument('--rules',type=Path,help='clean/check: browser-exported rules JSON with exact merchant aliases and high_cad');a=p.parse_args()
     if a.command=='clean' and (not a.files or a.llm):p.error('clean requires CSV/XLSX files and does not accept --llm (offline rules only)')
     if a.command!='clean' and a.files:p.error('input files are only accepted by clean')
+    if a.verify and a.command!='clean':p.error('--verify is only accepted by clean')
+    if a.rules and a.command not in ('clean','check'):p.error('--rules is only accepted by clean and check')
     if a.out is None:a.out=Path('output-clean') if a.command=='clean' else ROOT/'output'
     try:
-        if a.command=='build':build(a.out,a.seed,a.high_cad,a.llm)
-        elif a.command=='clean':clean_files(a.files,a.out,a.high_cad)
-        elif a.command=='check':verify(a.out,not a.no_repeat,a.high_cad)
+        rules=load_rules(a.rules) if a.rules else None
+        high=a.high_cad
+        if rules is not None:
+            rule_high=threshold_cents(rules['high_cad'])
+            if high is not None and high!=rule_high:raise ValueError('--high-cad conflicts with rules high_cad; choose one consistent threshold')
+            high=rule_high
+        elif high is None and a.command!='check':high=DEFAULT_HIGH_CENTS
+        if a.command=='build':build(a.out,a.seed,high,a.llm)
+        elif a.command=='clean':
+            if a.rules and a.rules.resolve() in ((a.out/name).resolve() for name in ('ledger.json','cleaned-bills.xlsx')):
+                raise ValueError('output would overwrite the rules file; choose another --out directory')
+            clean_files(a.files,a.out,high,rules)
+            if a.verify:verify(a.out,not a.no_repeat,high,rules)
+        elif a.command=='check':verify(a.out,not a.no_repeat,high,rules)
         elif a.command=='eval':return eval_llm(a.llm)
         else:break_demo(a.out);break_cache()
     except (AssertionError,ValueError,KeyError,OSError,csv.Error) as e:print('FAIL: '+str(e));return 1

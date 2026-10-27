@@ -27,6 +27,19 @@ try {
   const ref = JSON.parse(py(`import json,demo\nprint(json.dumps({str(s):demo.generate(s) for s in ${JSON.stringify(seeds)}}))`));
   check('B. generate(seed) rows == demo.generate (seeds 42/17/3)', seeds.every(s => deepEq(E.generate(s), ref[String(s)])));
 }
+// B2. the browser-exported aliases/threshold document produces the same cleaning rules in Python.
+{
+  const rules = JSON.parse(fs.readFileSync(path.join(REPO, 'examples/rules.json'), 'utf-8'));
+  const rows = JSON.parse(py(`import json,demo
+print(json.dumps(demo.read_exports(['examples/january.csv','examples/february.csv'])))`));
+  const extra = { aliases: {}, categories: {} };
+  for (const rule of rules.aliases) { extra.aliases[rule.alias.toLowerCase().replace(/[^a-z0-9]/g, '')] = rule.alias.trim(); extra.categories[rule.alias.trim()] = rule.category; }
+  const mine = E.clean(rows, Math.round(rules.high_cad * 100), extra);
+  const ref = JSON.parse(py(`import json,demo
+rules=demo.load_rules('examples/rules.json')
+print(json.dumps(demo.clean(demo.read_exports(['examples/january.csv','examples/february.csv']),demo.threshold_cents(rules['high_cad']),rules)))`));
+  check('B2. exported aliases/high_cad produce identical browser and CLI records, reasons and change log', deepEq(mine, ref));
+}
 // C. ledger bytes (seed 42 vs delivered; seeds 17/3 vs fresh Python builds)
 const js42 = await E.build(templates, 42);
 {

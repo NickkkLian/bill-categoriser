@@ -20,7 +20,7 @@ cd bill-categoriser
 python3 -B demo.py check
 ```
 
-To clean your own exports, run `python3 -B demo.py clean bills.csv another-export.xlsx --out output-clean`, then `python3 -B demo.py check --out output-clean`. Keep the original files unchanged for verification. The rules support CAD and explicit dates; unknown merchants require review. The default workflow processes files locally. Selecting your own model provider sends a suggestion request to that provider; model output is advisory and never silently recategorises a bill.
+To clean your own exports, run `python3 -B demo.py clean bills.csv another-export.xlsx --out output-clean --verify`. This writes the output and runs the existing checker with the same threshold in one command; verification failure returns a nonzero exit status. Keep the original files unchanged for verification. The rules support CAD and explicit dates; unknown merchants require review. The default workflow processes files locally. Selecting your own model provider sends a suggestion request to that provider; model output is advisory and never silently recategorises a bill.
 
 ## Try it
 
@@ -36,7 +36,23 @@ python3 -B demo.py check
 
 `build` writes `output/dirty-input.xlsx`, `output/ledger.json` and `output/cleaned-bills.xlsx`; `check` verifies them (the delivered files are already built, so you can open [the workbook](output/cleaned-bills.xlsx) first). On Windows use `python` if that is your Python command.
 
-`clean <files...>` reads your exports in argument order and writes `ledger.json` and the same five-sheet `cleaned-bills.xlsx`, with monthly totals for the months present in your retained bills. It defaults to `output-clean/` in your current directory. It uses the existing exact merchant rules: a merchant outside the alias map stays `Uncategorised` for review. It makes no model calls. Use `--high-cad` on both `clean` and `check` to change the review threshold. `check` re-reads the original input paths recorded in the ledger, checks every output cell/formula and rebuilds twice; keep those files available and unchanged. Absolute source paths are recorded for traceability, including when two files share a name. The output cannot overwrite an input or the generated demo folder.
+`clean <files...>` reads your exports in argument order and writes `ledger.json` and the same five-sheet `cleaned-bills.xlsx`, with monthly totals for the months present in your retained bills. It defaults to `output-clean/` in your current directory. By default it uses the existing exact merchant rules: a merchant outside the alias map stays `Uncategorised` for review. Add `--rules rules.json` to reuse aliases and the threshold exported from the browser. It makes no model calls. Use `--high-cad` on both `clean` and `check` to change the review threshold. `check` re-reads the original input paths recorded in the ledger, checks every output cell/formula and rebuilds twice; keep those files available and unchanged. Absolute source paths are recorded for traceability, including when two files share a name. The output cannot overwrite an input or the generated demo folder.
+
+### Reuse reviewed rules next month
+
+In the browser's **Rules & thresholds** view, choose **Export rules JSON** after applying your reviewed aliases. `clean --rules FILE` accepts that exact `aliases` / `high_cad` schema, so a merchant you classified once does not need another model call or another manual category decision for each monthly export. Matching remains exact after the same normalisation used by the browser.
+
+Try the included synthetic two-month example:
+
+```sh
+python3 -B demo.py clean examples/january.csv --rules examples/rules.json --out output-january --verify
+python3 -B demo.py clean examples/february.csv --rules examples/rules.json --out output-february --verify
+python3 -B demo.py check --out output-february --rules examples/rules.json
+```
+
+The rules file sets the threshold, so there is no second `--high-cad` to remember. An explicitly supplied conflicting threshold is rejected before writing output. Invalid categories, malformed thresholds, empty normalised aliases and duplicate normalised aliases are also rejected rather than silently skipped. Categories are Supplies, Utilities, Software, Rent, Transport and Uncategorised. New merchants without an exact rule still require review.
+
+The ledger stores a rules snapshot. Later `check --out output-february` uses that snapshot and can reproduce the result even if the original rules file moved; `check --rules FILE` additionally checks that the policy you supplied matches the snapshot. It is a reproducibility check against the recorded policy, not proof that the policy was the right human decision. Keep the original CSV/XLSX inputs unchanged. This feature reuses exported alias rules for new CLI runs; it does not import the browser's individual review decisions or make a manually reviewed browser ledger pass the CLI checker.
 
 | Seed 42 result | Rows | Known amount (CAD) |
 | --- | ---: | ---: |
