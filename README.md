@@ -8,7 +8,7 @@ For people reviewing inconsistent bill exports: normalise merchants, separate ex
 
 The bundled sample is synthetic: **125 input rows = 114 retained + 3 exact duplicates + 8 unparseable**. Possible duplicates stay retained and flagged; malformed amounts are never guessed.
 
-[![Bill Bench: a reconciliation bar accounts for every input row above the review queue and checks](docs/screenshot-overview.png)](https://nickkklian.github.io/bill-categoriser/?demo=1)
+[![Bill Bench with reconciled row counts, a review action and the source ledger](docs/screenshot-overview.png)](https://nickkklian.github.io/bill-categoriser/?demo=1)
 
 ## Quick start
 
@@ -24,7 +24,7 @@ To clean your own exports, run `python3 -B demo.py clean bills.csv another-expor
 
 ## Try it
 
-**In the browser** — open the [live demo](https://nickkklian.github.io/bill-categoriser/?demo=1) (GitHub Pages, static, no server), or open `docs/index.html` from a clone; it works offline, except for the cached model answers: a browser will not read `docs/llm-cache.json` from a `file://` page, so to get them serve the folder instead (`python3 -m http.server -d docs`, then open http://localhost:8000). *Load the sample workbook* generates the 125 synthetic rows in the tab, or drop your own `.xlsx` / `.csv` onto the landing page: files are parsed locally and never uploaded.
+**In the browser** — open the [live demo](https://nickkklian.github.io/bill-categoriser/?demo=1), or serve the local folder with `python3 -m http.server -d docs` and open http://localhost:8000. The page starts with the 125 generated sample rows or restores your saved workbook. **Workbook tools** provides Import, Bills, Needs review, Duplicates, Rules, Change log, Dashboard and Export. Import accepts a dropped `.xlsx` or `.csv` file and parses it locally. The site assets and fonts are self-hosted.
 
 **From the command line** — tested on macOS 15.7 with Python 3.9, 3.12 and 3.13. No packages, accounts or network access are needed.
 
@@ -65,20 +65,20 @@ Four input amounts are unknown; they are kept out of the arithmetic, never treat
 
 ## What the browser version adds
 
-![Review queue with the inspector showing a row's source, before/after changes and reasons](docs/screenshot-review.png)
+![Bill review sheet with the generated source-row preview, original cells and category actions](docs/screenshot-review.png)
 
-- **Overview** — a reconciliation panel that shows where every input row went, four partition cards, the review workload by reason, and six checks that run in the tab.
+- **Overview** — a reconciliation panel that shows where every input row went, partition cards and a searchable, sortable source ledger. Selecting a row opens its original cells and a generated source-row preview. The full review queue retains workload filters, and Export runs the six in-tab checks.
 - **Bills / Change log** — both tables sort by their column headers and filter from one row above them; **Duplicates** shows each excluded or possible duplicate next to the row it repeats. Every value carries a provenance chip (`src A:6`) that links back to the source sheet and row; 1,004 build-time changes plus your own decisions are logged with the rule that caused them.
 - **Needs review** — a keyboard-driven queue (`j`/`k`, `a` confirm, `c` category, `d` duplicate, `x` exclude, `u` undo). Every decision is undoable and written to the change log; "also add rule" turns one decision into a rule and shows how many rows it affects first.
 - **Rules** — alias → category rules and the high-amount threshold; edits show their impact (rows re-categorised, flagged, un-flagged) before you apply them.
 - **Suggestions** for unmapped merchants: *cached model output* shipped in the repo (model and date shown, selected by default because it needs no key and no network), *Simulate* (canned keyword rules, no network, labelled simulated), or *your own model* — Claude, OpenAI, Google Gemini or any OpenAI-compatible endpoint such as Ollama (the key is kept in the tab's memory, never stored, and is cleared when you pick another provider). Suggestions only ever enter the review queue; accepting one is recorded as your decision.
 - **Export** — the same five-sheet workbook, `ledger.json` and `rules.json`, built in the browser with the same OOXML writer the CLI uses. A zero-decision export of the sample is byte-identical to the CLI's `ledger.json`, and `demo.py check` accepts a browser-built folder.
-- Settings for three palettes (Plaster, Paper, Ink) with light and dark, a 375 px layout, URL state for every view, IndexedDB persistence, and a "Clear all data" button.
+- One header icon switches the approved palette between light and dark. Keyboard settings remain in Workbook tools. URL state, IndexedDB persistence and the Import page's "Clear all data" action remain available.
 
 ## How it fits together
 
 ```mermaid
-%%{init: {"theme": "base", "themeVariables": {"darkMode": false, "fontFamily": "Inter, BlinkMacSystemFont, Segoe UI, Helvetica Neue, Helvetica, Arial", "primaryColor": "#dae7db", "mainBkg": "#dae7db", "primaryTextColor": "#1d1b24", "nodeTextColor": "#1d1b24", "textColor": "#1d1b24", "primaryBorderColor": "#2f5859", "nodeBorder": "#2f5859", "secondaryColor": "#fae8eb", "tertiaryColor": "#f7e9e8", "lineColor": "#5f7f76", "arrowheadColor": "#5f7f76", "defaultLinkColor": "#5f7f76", "edgeLabelBackground": "#fae8eb", "clusterBkg": "#f7e9e8", "clusterBorder": "#a8707a", "titleColor": "#7d2d44"}}}%%
+%%{init: {"theme": "base", "themeVariables": {"darkMode": false, "fontFamily": "Inter, BlinkMacSystemFont, Segoe UI, Helvetica Neue, Helvetica, Arial", "primaryColor": "#eceeed", "mainBkg": "#eceeed", "primaryTextColor": "#262b28", "nodeTextColor": "#262b28", "textColor": "#262b28", "primaryBorderColor": "#626863", "nodeBorder": "#626863", "secondaryColor": "#ffffff", "tertiaryColor": "#f4f4f3", "lineColor": "#626863", "arrowheadColor": "#626863", "defaultLinkColor": "#626863", "edgeLabelBackground": "#ffffff", "clusterBkg": "#f4f4f3", "clusterBorder": "#d3d7d3", "titleColor": "#855416"}}}%%
 flowchart LR
   A[".xlsx / .csv<br/>or seed generator"] --> B["read_input<br/>3 known header layouts + tolerant mapping"]
   B --> C["clean<br/>alias map · integer cents · explicit dates · partitions · reasons"]

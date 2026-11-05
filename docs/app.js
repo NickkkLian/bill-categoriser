@@ -111,7 +111,9 @@ function runChecks() {
 function exportModel() {
   const m = M();
   const records = m.records.map(r => { const { decided, decidedAt, ...rest } = r; return rest; });
-  return { records, changes: m.base.changes, reconciliation: m.reconciliation, seed: S.source?.kind === 'sample' ? S.source.seed : null, high_amount_cents: S.rules.threshold };
+  const reconciliation = { ...m.reconciliation, counts: { ...m.reconciliation.counts }, cents: { ...m.reconciliation.cents } };
+  if (!reconciliation.counts.excluded) { delete reconciliation.counts.excluded; delete reconciliation.cents.excluded; }
+  return { records, changes: m.base.changes, reconciliation, seed: S.source?.kind === 'sample' ? S.source.seed : null, high_amount_cents: S.rules.threshold };
 }
 function exportTables() {
   const em = exportModel(); const m = M();
@@ -517,11 +519,11 @@ function viewRules(main, m) {
 function importRules() { const input = h('input', { type: 'file', accept: '.json', onchange: async e => { const file = e.target.files[0]; try { const j = JSON.parse(await file.text()); const aliases = (j.aliases || []).filter(x => x.alias && [...CATEGORIES, 'Uncategorised'].includes(x.category)).map(x => ({ id: uid(), alias: String(x.alias), category: x.category, who: 'you', at: nowIso() })); S.pending = { aliases, threshold: j.high_cad ? Math.round(j.high_cad * 100) : S.rules.threshold, dirty: true }; render(); toast(`Imported ${plural(aliases.length, 'rule')} — review the pending changes`); } catch (err) { toast(`Could not read ${file ? file.name : 'that file'}: it is not the JSON that Export rules writes. Nothing was changed.`, { kind: 'error', action: { label: 'Choose another file', run: importRules, focus: () => [...document.querySelectorAll('#main button')].find(b => b.textContent === 'Import rules JSON') } }); } } }); input.click(); }
 
 function svgBars(data, { height = 180, unknownKeys = [] } = {}) { // vertical bars, one hue; labels below; values on top
-  const W = 600, pad = 28, n = data.length, bw = (W - pad * 2) / n, max = Math.max(1, ...data.map(d => Math.abs(d.v)));
+  const W = Math.max(600, data.length * 104), pad = 28, n = data.length, bw = (W - pad * 2) / n, max = Math.max(1, ...data.map(d => Math.abs(d.v)));
   const y = v => height - 30 - Math.abs(v) / max * (height - 60);
-  return h('svg', { viewBox: `0 0 ${W} ${height}`, role: 'img', 'aria-label': data.map(d => `${d.k}: ${d.label}`).join(', ') }, h('defs', { html: '<pattern id="hatch" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="3" height="6" fill="var(--viz-axis)"/></pattern>' }),
+  return h('svg', { viewBox: `0 0 ${W} ${height}`, style: `min-width:${W}px`, role: 'img', 'aria-label': data.map(d => `${d.k}: ${d.label}`).join(', ') }, h('defs', { html: '<pattern id="hatch" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="3" height="6" fill="var(--viz-axis)"/></pattern>' }),
     [0.25, 0.5, 0.75, 1].map(f => h('line', { class: 'grid', x1: pad, x2: W - pad, y1: y(max * f), y2: y(max * f) })), h('line', { class: 'axis', x1: pad, x2: W - pad, y1: height - 30, y2: height - 30 }),
-    data.map((d, i) => [h('rect', { class: 'bar' + (unknownKeys.includes(d.k) ? ' unknown' : ''), x: pad + i * bw + bw * 0.15, width: bw * 0.7, y: y(d.v), height: Math.max(1, height - 30 - y(d.v)) }, h('title', {}, `${d.k}: ${d.label}`)), h('text', { x: pad + i * bw + bw / 2, y: height - 14, 'text-anchor': 'middle' }, d.k.length > 8 ? d.k.slice(0, 7) + '…' : d.k), n <= 12 ? h('text', { x: pad + i * bw + bw / 2, y: y(d.v) - 4, 'text-anchor': 'middle', style: 'font-size:9px' }, d.short) : null]));
+    data.map((d, i) => [h('rect', { class: 'bar' + (unknownKeys.includes(d.k) ? ' unknown' : ''), x: pad + i * bw + bw * 0.15, width: bw * 0.7, y: y(d.v), height: Math.max(1, height - 30 - y(d.v)) }, h('title', {}, `${d.k}: ${d.label}`)), h('text', { x: pad + i * bw + bw / 2, y: height - 14, 'text-anchor': 'middle' }, d.k.length > 8 ? d.k.slice(0, 7) + '…' : d.k), n <= 12 ? h('text', { x: pad + i * bw + bw / 2, y: y(d.v) - 4, 'text-anchor': 'middle', style: 'font-size:14px' }, d.short) : null]));
 }
 function chartCard(title, note, data, tableCols, key, opts) {
   const mode = (S.ui.chartMode || {})[key] || 'chart';
@@ -611,7 +613,8 @@ function focusKey(el) {
 // the whole of main was not). "Visible" means a box larger than 2px that is not clipped to 1px.
 function firstHeading() {
   const seen = x => { const r = x.getBoundingClientRect(), cs = getComputedStyle(x); return r.width > 2 && r.height > 2 && cs.visibility !== 'hidden' && !/inset\(50%\)|rect\(0/.test(cs.clipPath + cs.clip); };
-  const x = [...document.querySelectorAll('#main h1')].find(seen) || [...document.querySelectorAll('#main h2')].find(seen) || $('#main');
+  const scope = $('#ledger-main').hidden ? $('#main') : $('#ledger-main');
+  const x = [...scope.querySelectorAll('h1')].find(seen) || [...scope.querySelectorAll('h2')].find(seen) || scope;
   if (x && !x.hasAttribute('tabindex')) x.setAttribute('tabindex', '-1');
   return x;
 }
@@ -624,7 +627,7 @@ function restoreFocus(find) {
 }
 function render() {
   const active = document.activeElement, inQueue = !!(active && active.closest && active.closest('#queue'));
-  const find = focusKey(active); renderPage();
+  const find = focusKey(active); renderPage(); window.dispatchEvent(new CustomEvent('bill-render'));
   // one primary button per screen: the top-bar "Start review" steps aside where the page shows its own
   // (the overview plate, the review inspector, Export, the landing page's load button)
   if ([...document.querySelectorAll('#main .btn-primary, #inspector .btn-primary')].some(b => b.getClientRects().length)) $('#primary-action').hidden = true;
@@ -692,10 +695,10 @@ async function init() {
   let rt; window.addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(render, 150); });
   const saved = await DB.get('state');
   const url = new URLSearchParams(location.search);
-  if (saved && saved.rows) { Object.assign(S, { source: saved.source, rows: saved.rows, rules: saved.rules || S.rules, decisions: saved.decisions || [] }); Object.assign(S.ui, saved.ui || {}); invalidate(); toast(`Restored ${saved.rows.length} rows and ${plural(S.decisions.filter(d => !d.undoneBy && d.action !== 'undo').length, 'decision')} from this browser`, { ms: 5000 }); if (!location.hash || location.hash === '#/') location.replace('#/overview'); }
-  else if (url.get('demo') === '1' || url.get('demo') === 'quiet') { await loadSample(parseInt(url.get('seed') || '42', 10) || 42); if (!location.hash || location.hash === '#/') location.replace('#/overview'); }
+  if (saved && saved.rows) { Object.assign(S, { source: saved.source, rows: saved.rows, rules: saved.rules || S.rules, decisions: saved.decisions || [] }); Object.assign(S.ui, saved.ui || {}); invalidate(); if (url.get('demo') !== 'quiet') toast(`Restored ${saved.rows.length} rows and ${plural(S.decisions.filter(d => !d.undoneBy && d.action !== 'undo').length, 'decision')} from this browser`, { ms: 5000 }); if (!location.hash || location.hash === '#/') location.replace('#/overview'); }
+  else if (!location.hash || (route().view !== '' && route().view !== 'import') || url.get('demo') === '1' || url.get('demo') === 'quiet') { await loadSample(parseInt(url.get('seed') || '42', 10) || 42); if (!location.hash || location.hash === '#/') location.replace('#/overview'); }
   render();
 }
-window.BillBench = { state: S, model: M, exportWorkbook, exportLedger, exportInput, runChecks, loadSample };
+window.BillBench = { state: S, model: M, exportWorkbook, exportLedger, exportInput, runChecks, loadSample, decide, undoDecision, render };
 init();
 })();

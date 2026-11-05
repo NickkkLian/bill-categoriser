@@ -1,58 +1,14 @@
 <!doctype html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<script>/* appearance boot — runs before any stylesheet so the stored palette and light/dark apply on the first paint */(function(){try{var d=document.documentElement,L=window.localStorage,t=L.getItem('nl-theme'),s=L.getItem('nl-scheme');if(s===null){var o=L.getItem('theme')||L.getItem('qm-theme');if(o==='dark'||o==='light')s=o;}if(t==='paper'||t==='ink')d.setAttribute('data-theme',t);if(s==='dark'||s==='light')d.setAttribute('data-scheme',s);}catch(e){}})();</script>
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="description" content="Bill Bench: clean, categorise and reconcile a year of bills in the browser. Every row stays traceable; synthetic demo data; nothing is uploaded.">
-<meta name="theme-color" content="#f7e9e8" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#130e15" media="(prefers-color-scheme: dark)">
-<title>Bill Bench</title>
-<link rel="icon" href="favicon.svg" type="image/svg+xml">
-<link rel="apple-touch-icon" href="apple-touch-icon.png">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,500..600;1,9..144,400&family=Inter:wght@400..600&family=Space+Mono:wght@400;700&display=swap">
-<link rel="stylesheet" href="design-tokens.css">
-<link rel="stylesheet" href="app.css">
-</head>
-<body>
-<a class="skip" href="#main">Skip to content</a>
-<header class="topbar">
-  <a class="brand" href="#/" aria-label="Bill Bench home">
-    <svg viewBox="0 0 24 24" width="24" height="24" fill="none" aria-hidden="true" focusable="false"><rect x="2.5" y="2.5" width="19" height="19" rx="5" stroke="currentColor" stroke-width="2"/><rect x="14" y="6" width="4" height="4" rx="1" fill="var(--point)"/><path d="M7 9h4M7 12.5h10M7 16h10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-    <b>Bill Bench</b><span>Clean, categorise and reconcile a year of bills in the browser — every row stays traceable.</span>
-  </a>
-  <span class="pill" id="pill" title="All figures come from generated data, not a client.">Demo<span class="long" id="pill-long"> · synthetic data</span></span>
-  <span class="spacer"></span>
-  <button class="btn btn-ghost" id="sections" aria-label="Sections" hidden>Sections</button>
-  <button class="btn btn-primary" id="primary-action" hidden>Start review</button>
-  <button class="btn btn-ghost btn-icon" id="theme" aria-label="Dark mode" aria-pressed="false" title="Dark mode"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="8" stroke="currentColor" stroke-width="2"/><path d="M12 4a8 8 0 0 1 0 16z" fill="currentColor"/></svg></button>
-  <button type="button" class="btn btn-ghost btn-icon" id="nl-settings-button" aria-haspopup="dialog" aria-label="Settings" title="Settings"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M10.34 5.10L10.58 2.51L13.42 2.51L13.66 5.10A7.1 7.1 0 0 1 15.71 5.95L17.71 4.28L19.72 6.29L18.05 8.29A7.1 7.1 0 0 1 18.90 10.34L21.49 10.58L21.49 13.42L18.90 13.66A7.1 7.1 0 0 1 18.05 15.71L19.72 17.71L17.71 19.72L15.71 18.05A7.1 7.1 0 0 1 13.66 18.90L13.42 21.49L10.58 21.49L10.34 18.90A7.1 7.1 0 0 1 8.29 18.05L6.29 19.72L4.28 17.71L5.95 15.71A7.1 7.1 0 0 1 5.10 13.66L2.51 13.42L2.51 10.58L5.10 10.34A7.1 7.1 0 0 1 5.95 8.29L4.28 6.29L6.29 4.28L8.29 5.95A7.1 7.1 0 0 1 10.34 5.10Z"/><circle cx="12" cy="12" r="3"/></svg></button>
-  <a class="btn btn-ghost gh" href="https://github.com/NickkkLian/bill-categoriser" rel="noopener">GitHub</a>
-  <button class="btn btn-ghost btn-icon" id="help" aria-label="Keyboard shortcuts and help" title="Keyboard shortcuts (?)">?</button>
-</header>
-<div class="shell no-inspector" id="shell">
-  <nav class="nav" id="nav" aria-label="Sections"></nav>
-  <main class="main" id="main" tabindex="-1"></main>
-  <aside class="inspector" id="inspector" aria-label="Inspector"></aside>
-</div>
-<footer class="honest">
-  <dl class="honest-in">
-    <div><dt>About this demo</dt>
-    <dd>Every number on this page is computed in this tab from the loaded rows. The sample is generated data (seed 42, 125 rows) with merchants named <code>Demo &lt;type&gt; 0N</code>; no client data, no real merchants, no real company logos. Files you import are parsed here and never uploaded.</dd></div>
-    <div><dt>Not verified here</dt>
-    <dd>Byte-for-byte equality with the Python build (run <code>python3 -B demo.py check --out &lt;exported folder&gt;</code> locally; only zero-decision exports can pass it) · native Windows/Linux runs of the checker · arbitrary workbook layouts beyond the header mapping · OCR/PDF invoices, tax treatment, currency conversion, posting to accounting software.</dd></div>
-    <div><dt>Source</dt>
-    <dd><a href="https://github.com/NickkkLian/bill-categoriser" rel="noopener">github.com/NickkkLian/bill-categoriser</a> · MIT · built by Nick Lian</dd></div>
-  </dl>
-</footer>
-<div class="toasts" id="toasts" aria-live="polite"></div>
-<dialog id="dlg"></dialog>
-<script src="bills-engine.js"></script>
-<script src="templates.js"></script>
-<script src="llm.js"></script>
-<script src="appearance.js"></script>
-<script src="app.js"></script>
-</body>
-</html>
+<html lang="en" data-theme="light"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="description" content="Reconcile, review, categorise and export bills locally with traceable source rows."><link rel="icon" href="favicon.svg" type="image/svg+xml"><title>Bill Bench — dirty-input.xlsx</title><link rel="stylesheet" href="fonts.css"><link rel="stylesheet" href="tokens.css"><link rel="stylesheet" href="base.css"><link rel="stylesheet" href="design-tokens.css"><link rel="stylesheet" href="app.css"><link rel="stylesheet" href="style.css"><link rel="stylesheet" href="integration.css"></head>
+<body data-project="bill-bench"><a class="skip" href="#ledger-main">Skip to work</a>
+
+<header data-header-form="file-toolbar"><a class="brand" href="#/overview">Bill Bench</a><span class="file-chip">dirty-input.xlsx</span><span class="badge">Sample workbook</span><button id="workbook-info" class="ghost">Workbook tools</button></header>
+<main id="ledger-main" data-alignment="edge-to-edge-ledger" class="working-object"><section class="reconciliation"><div class="reconcile-heading"><h1>Every row accounted for</h1><span class="badge success">125 rows reconciled</span></div><div class="tieout"><div><span>Input rows</span><strong>125</strong><p>CAD 143,852.81 known</p></div><div><span>Kept</span><strong>114</strong><p>CAD 131,711.27</p></div><div><span>Duplicates</span><strong>3</strong><p>CAD 6,256.65</p></div><div><span>Unreadable</span><strong>8</strong><p>CAD 5,884.89 known</p></div><div id="excluded-tile" hidden><span>Reviewed exclusions</span><strong>0</strong><p>CAD 0.00</p></div></div><div class="row-accounting" role="img" aria-label="125 input rows divided into 114 retained, 3 duplicate, and 8 unreadable rows"><span class="kept"></span><span class="duplicates"></span><span class="unreadable"></span><span class="excluded-part" hidden></span></div><p class="unknown">4 rows have unknown amounts. Known amounts add up, with those rows disclosed separately.</p></section>
+<div class="review-toolbar"><div><strong id="review-count">39 rows need attention</strong><p>The next problem is a missing date in row 6.</p></div><button class="primary" data-main-action id="review-first">Review row 6 <span>Missing date</span></button></div>
+<section class="ledger panel"><div class="ledger-top"><div class="tab-overflow bill-tabs"><div class="tab-scroll"><nav class="workbook-sheets segmented" aria-label="Workbook sheets"><button data-sheet="all" aria-current="page">All input <span>125</span></button><button data-sheet="clean">Kept <span>114</span></button><button data-sheet="duplicate">Duplicates <span>3</span></button><button data-sheet="unparseable">Unreadable <span>8</span></button><button data-sheet="excluded" hidden>Excluded <span>0</span></button></nav></div><button class="tab-more icon-button" type="button" data-scroll-target aria-label="Show more workbook sheets"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg></button></div><div class="ledger-tools"><label for="find" class="sr-only">Search merchant</label><input id="find" type="search" placeholder="Search merchant" autocomplete="off"><label for="reason" class="sr-only">Show rows</label><select id="reason"><option value="all">All input rows</option><option value="review">Needs attention</option><option value="category">Needs a category</option><option value="missing">Missing values</option></select><span id="visible-count">125 rows</span></div></div><div class="ledger-scroll table-scroll" tabindex="0" role="region" aria-label="Bill ledger"><table><thead><tr><th class="row-no">Row</th><th class="merchant-col">Merchant</th><th>Invoice</th><th>Date</th><th>Category</th><th class="num amount-col">Amount, CAD</th><th>Review</th><th class="source-col">Source row</th><th class="source-file-col">Source workbook</th><th class="original-date-col">Original date</th><th class="original-amount-col">Original amount</th></tr></thead><tbody id="ledger-body"></tbody></table></div></section><p id="ledger-status" role="status">125 source rows. Select a row to inspect its original values.</p></main>
+<section id="legacy-workspace" hidden><div class="feature-toolbar"><button id="sections" hidden>Sections</button><a class="button" href="#/overview">Back to ledger</a><button id="primary-action" hidden>Start review</button><span id="pill" hidden><span id="pill-long"></span></span></div><div class="shell no-inspector" id="shell"><nav class="nav" id="nav" aria-label="Sections"></nav><main class="main" id="main" tabindex="-1"></main><aside class="inspector" id="inspector" aria-label="Inspector"></aside></div></section><div id="toasts" aria-live="polite"></div><dialog id="dlg"></dialog>
+<footer><span>Generated sample bills · Review changes saved in this browser</span><a href="https://github.com/NickkkLian/bill-categoriser">Workbook rules</a></footer>
+<dialog id="review-dialog" class="sheet"><form method="dialog"><div class="dialog-title"><h2 id="review-title">Review row 6</h2><button class="close" aria-label="Close review">✕</button></div><p id="review-source" class="muted"></p><h3 id="review-merchant"></h3><div class="source-preview"><figure id="bill-thumbnail" aria-label="Source row rendered as a bill"></figure><section><h3>Original cells</h3><div class="original-values" id="original-values"></div></section></div><p id="review-reasons" class="badge warning"></p><div class="category-field"><label for="set-category">Category for this row</label><select id="set-category"><option>Uncategorised</option><option>Supplies</option><option>Utilities</option><option>Software</option><option>Rent</option><option>Transport</option><option>Other</option></select></div><div class="dialog-actions"><button class="primary" id="apply-category" type="button">Use this category</button><button id="exclude" type="button">Exclude from kept rows</button><button>Keep for review</button><a class="button" id="full-review" href="#/review">Full review tools</a><button type="button" id="undo-review" hidden>Undo review</button></div><p>Original cells remain available beside the reviewed fields. Full review tools include confirmation, duplicate decisions and suggestions.</p></form></dialog>
+<dialog id="workbook-dialog"><div class="dialog-title"><h2>Workbook details</h2><button data-close aria-label="Close workbook details">✕</button></div><nav id="workbook-tools" aria-label="Workbook tools"><a class="button" href="#/">Import</a><a class="button" href="#/overview">Overview</a><a class="button" href="#/bills">Bills</a><a class="button" href="#/review">Needs review</a><a class="button" href="#/duplicates">Duplicates</a><a class="button" href="#/rules">Rules</a><a class="button" href="#/log">Change log</a><a class="button" href="#/dashboard">Dashboard</a><a class="button" href="#/export">Export</a></nav><div class="dialog-actions"><button id="nl-settings-button">Keyboard settings</button><button id="help">Help</button></div><p>125 sample rows from Export A and Export B. Merchant and invoice aliases are fictional. Four source rows have amounts that cannot be read.</p><p>The preview preserves all input rows and their original provenance. Review decisions and rules are saved in this browser. Export a workbook or ledger from Workbook tools.</p></dialog>
+
+<script src="base.js"></script><script src="bills-engine.js"></script><script src="templates.js"></script><script src="llm.js"></script><script src="appearance.js"></script><script src="ledger.js"></script><script src="app.js"></script></body></html>
