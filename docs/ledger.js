@@ -129,9 +129,6 @@ function review(record) {
   row?.classList.add('selected-row');
   row?.scrollIntoView({ block: 'nearest' });
   $('#review-source').textContent = `${record.source_file}, ${record.source_sheet}, row ${record.source_row}`;
-  $('#review-merchant').textContent = `${record.merchant} · CAD ${money(record.cents)}`;
-  $('#review-invoice').textContent = record.invoice || 'Missing';
-  $('#review-date').textContent = record.date || 'Missing';
   $('#original-values').replaceChildren();
   record.headers.forEach((name, index) => {
     const row = document.createElement('div');
@@ -148,6 +145,9 @@ function review(record) {
   $('#review-reasons').textContent = record.reasons.length ? record.reasons.map(readableReason).join('. ') : 'This row has no review flags.';
   $('#set-category').value = record.category;
   $('#exclude').disabled = record.status !== 'clean' || record.excluded;
+  const exclusionReason=record.excluded?'This row has already been excluded.':record.status==='duplicate'?'This row is already outside kept rows because it is a duplicate.':record.status!=='clean'?'This row is already outside kept rows because its date or amount is unreadable.':'';
+  $('#exclude-reason').textContent=exclusionReason;
+  $('#exclude-reason').hidden=!exclusionReason;
   $('#undo-review').hidden = !record.decided;
   $('#set-category').dispatchEvent(new Event('ui-sync'));
   const title=document.createElement('h4');title.textContent='Source row preview';

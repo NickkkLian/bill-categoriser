@@ -262,6 +262,10 @@ header .brand { text-decoration: none; }
 #legacy-workspace .rule-count-note { margin-bottom: 16px; }
 #legacy-workspace .rule-settings .rule-edit { margin-top: 12px; }
 #legacy-workspace .rules-table td { max-width: none; }
+#legacy-workspace .rules-table th.num,#legacy-workspace .rules-table td.num,#legacy-workspace .rules-table td.num .cell-value { text-align: left; }
+#legacy-workspace .merchant-rules table.rules-table th.num,#legacy-workspace .merchant-rules table.rules-table tbody td.num { text-align: left; }
+#legacy-workspace .merchant-rules table.rules-table .combo { min-width: 165px; width: 165px; flex: 0 1 165px; }
+#legacy-workspace .merchant-rules table.rules-table .combo-trigger > span { white-space: nowrap; }
 #legacy-workspace .rules-table .rule-edit { flex-wrap: nowrap; }
 #legacy-workspace .rules-table .combo { min-width: 145px; }
 #legacy-workspace .compact-bars { display: grid; gap: 12px; }
@@ -363,4 +367,114 @@ header .brand { text-decoration: none; }
   #ledger-main .ledger tbody tr { background: var(--surface); }
   #ledger-main .ledger tbody tr.needs-review { background: var(--warning-soft); }
   #ledger-main .ledger tbody tr:has(.danger) { background: var(--danger-soft); }
+}
+
+/* Review 2: intrinsic phone record grids, compact summaries and aligned rule editing. */
+
+@media(max-width:700px) {
+  #legacy-workspace table.record-table { background: transparent; }
+  #legacy-workspace table.record-table tbody { padding: 0; justify-items: start; gap: 12px; }
+  #legacy-workspace table.record-table thead tr { padding: 8px 0 12px; }
+  #legacy-workspace table.record-table tbody > tr {
+    display: grid; grid-template-columns: repeat(2,minmax(0,max-content));
+    gap: 12px 20px; align-items: start; justify-content: start;
+    width: fit-content; max-width: 100%; padding: 12px; background: var(--soft);
+  }
+  #legacy-workspace table.record-table tbody td,#legacy-workspace table.record-table tbody td.num {
+    display: flex; flex-direction: column; align-items: flex-start; gap: 4px;
+    padding: 0; width: auto; min-width: 0; max-width: 100%; height: auto;
+    text-align: left; background: transparent; border: 0; overflow-wrap: anywhere;
+  }
+  #legacy-workspace table.record-table .cell-label { font: 400 12px/1.4 var(--body); }
+  #legacy-workspace table.record-table .cell-value { font: 400 14px/1.4 var(--body); min-width: 0; max-width: 100%; }
+  #legacy-workspace table.record-table td.num .cell-value { font-family: var(--mono); }
+  #legacy-workspace table.record-table td[data-empty=true] { display: none; }
+  #legacy-workspace table.record-table td.actions { align-self: end; }
+  #legacy-workspace table.record-table td.actions .cell-label { display: none; }
+  #legacy-workspace table.record-table td.actions .btn { min-height: 32px; height: 32px; padding: 0 8px; }
+}
+
+@media(max-width:700px) {
+  #ledger-main table.record-table { background: transparent; }
+  #ledger-main table.record-table tbody { padding: 0; justify-items: start; gap: 12px; }
+  #ledger-main table.record-table thead tr { padding: 8px 0 12px; }
+  #ledger-main table.record-table tbody > tr {
+    display: grid; grid-template-columns: repeat(2,minmax(0,max-content));
+    gap: 12px 20px; align-items: start; justify-content: start;
+    width: fit-content; max-width: 100%; padding: 12px; background: var(--soft);
+  }
+  #ledger-main table.record-table tbody td,#ledger-main table.record-table tbody td.num {
+    display: flex; flex-direction: column; align-items: flex-start; gap: 4px;
+    padding: 0; width: auto; min-width: 0; max-width: 100%; height: auto;
+    text-align: left; background: transparent; border: 0; overflow-wrap: anywhere;
+  }
+  #ledger-main table.record-table .cell-label { font: 400 12px/1.4 var(--body); }
+  #ledger-main table.record-table .cell-value { font: 400 14px/1.4 var(--body); min-width: 0; max-width: 100%; }
+  #ledger-main table.record-table td.num .cell-value { font-family: var(--mono); }
+  #ledger-main table.record-table td[data-empty=true] { display: none; }
+  #ledger-main table.record-table td.actions { align-self: end; }
+  #ledger-main table.record-table td.actions .cell-label { display: none; }
+  #ledger-main table.record-table td.actions .btn { min-height: 32px; height: 32px; padding: 0 8px; }
+}
+
+#legacy-workspace table.compact-table { display: table; width: 100%; min-width: 0; max-width: 100%; border-collapse: collapse; table-layout: auto; }
+#legacy-workspace table.compact-table thead { display: table-header-group; }
+#legacy-workspace table.compact-table tbody { display: table-row-group; }
+#legacy-workspace table.compact-table thead tr,#legacy-workspace table.compact-table tbody > tr { display: table-row; background: transparent; }
+#legacy-workspace table.compact-table th,#legacy-workspace table.compact-table tbody td,#legacy-workspace table.compact-table tbody td.num { display: table-cell; width: auto; max-width: none; height: auto; padding: 10px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+#legacy-workspace table.compact-table th.num,#legacy-workspace table.compact-table tbody td.num { text-align: right; }
+#legacy-workspace table.compact-table .cell-label { display: none; }
+#legacy-workspace table.compact-table .cell-value { display: block; font-size: 14px; }
+#legacy-workspace table.compact-table th button { padding: 0; min-height: 32px; background: transparent; width: auto; }
+
+#legacy-workspace .rules-layout { grid-template-columns: minmax(0,700px) minmax(280px,420px); }
+#legacy-workspace .merchant-rules { width: 700px; max-width: 100%; }
+#legacy-workspace .merchant-rules table.rules-table { width: max-content; max-width: 100%; }
+#legacy-workspace .rules-table .rule-edit { width: max-content; gap: 8px; }
+#legacy-workspace .rules-table .combo { min-width: 145px; width: 145px; }
+#legacy-workspace .rules-table td { max-width: none; }
+#legacy-workspace .merchant-table .stats-sort { display: flex; flex-direction: column; align-items: flex-end; }
+#legacy-workspace .merchant-table .merchant-stats { display: grid; gap: 4px; }
+#legacy-workspace .sample-formula-note { margin-top: 12px; overflow-wrap: anywhere; }
+#legacy-workspace .export-downloads { display: grid; grid-template-columns: repeat(auto-fit,minmax(min(100%,280px),1fr)); gap: 16px; margin-top: 16px; align-items: start; }
+#legacy-workspace .export-totals { display: grid; gap: 12px; margin: 16px 0; }
+#legacy-workspace .export-totals > div { padding: 12px; background: var(--soft); border-radius: 6px; }
+#legacy-workspace .export-totals dt { font-weight: 700; margin-bottom: 4px; }
+#legacy-workspace .export-totals dd { margin: 0; font-size: 14px; line-height: 1.6; }
+.action-exclusion { display: grid; gap: 8px; max-width: 300px; }
+#exclude-reason { font-size: 12px; line-height: 1.5; color: var(--muted); margin: 0; }
+.dialog-actions { align-items: start; }
+@media(max-width:1100px) { #legacy-workspace .rules-layout { grid-template-columns: minmax(0,1fr); } }
+@media(max-width:700px) {
+  #legacy-workspace .merchant-rules { width: 100%; padding: 0; background: transparent; }
+  #legacy-workspace table.record-table tbody > tr { background: var(--surface); }
+  #legacy-workspace table.record-table tbody > tr { max-width: min(100%,360px); }
+  #legacy-workspace .tablewrap:has(>table.record-table:not(.compact-table)) { background: transparent; box-shadow: none; border-radius: 0; }
+  #legacy-workspace .dashboard-column > .card:has(> .tablewrap > table.record-table:not(.compact-table)) { background: transparent; padding: 0; }
+  #legacy-workspace table.rules-table tbody td:nth-child(1) { grid-column: 1/-1; grid-row: 1; }
+  #legacy-workspace table.rules-table tbody td:nth-child(2) { grid-column: 1/-1; grid-row: 3; }
+  #legacy-workspace table.rules-table tbody td:nth-child(3) { grid-column: 1; grid-row: 2; }
+  #legacy-workspace table.rules-table tbody td:nth-child(4) { grid-column: 2; grid-row: 2; }
+  #legacy-workspace .rules-table .rule-edit { display: flex; flex-wrap: nowrap; align-items: center; width: 100%; }
+  #legacy-workspace .rules-table .combo { min-width: 145px; width: 145px; flex: 0 1 145px; }
+  #legacy-workspace .rules-table .rule-edit .btn { flex: 0 0 auto; }
+  #legacy-workspace table.compact-table th,#legacy-workspace table.compact-table tbody td { padding: 8px 4px; }
+  #legacy-workspace table.compact-table th:not(:has(button)) { display: table-cell; }
+  #legacy-workspace table.compact-table .cell-value { font-size: 14px; }
+  #legacy-workspace table.merchant-table { table-layout: fixed; }
+  #legacy-workspace table.merchant-table th:nth-child(1) { width: 42%; }
+  #legacy-workspace table.merchant-table th:nth-child(2) { width: 32%; }
+  #legacy-workspace table.merchant-table th:nth-child(3) { width: 26%; }
+  #legacy-workspace .merchant-table .stats-sort button { min-height: 28px; }
+}
+
+#legacy-workspace table.compact-table thead th { display: table-cell; position: static; }
+#legacy-workspace table.compact-table thead th:not(:has(button)) { display: table-cell; }
+#legacy-workspace table.compact-table td.num .cell-value { text-align: right; font-family: var(--mono); }
+#legacy-workspace .export-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 16px; align-items: start; }
+#legacy-workspace .export-grid > .card { grid-column: 1; }
+#legacy-workspace .export-grid > .export-checks { grid-column: 2; grid-row: 1 / span 4; }
+@media(max-width:1100px) {
+  #legacy-workspace .export-grid { grid-template-columns: minmax(0,1fr); }
+  #legacy-workspace .export-grid > .card,#legacy-workspace .export-grid > .export-checks { grid-column: auto; grid-row: auto; }
 }

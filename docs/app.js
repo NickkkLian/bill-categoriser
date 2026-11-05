@@ -107,11 +107,11 @@ const M = () => cache || (cache = buildModel());
 function runChecks() {
   const m = M(); const items = [];
   const ids = m.records.map(r => r.id);
-  items.push(['every output row points to a source', ids.length === S.rows.length && new Set(ids).size === ids.length, `${ids.length} rows, ${new Set(ids).size} unique ids`]);
+  items.push(['Every input row keeps its source reference', ids.length === S.rows.length && new Set(ids).size === ids.length, `${ids.length} source rows each point to one original file, sheet and row. No source row was lost or repeated.`]);
   const total = Object.values(m.reconciliation.counts).reduce((a, b) => a + b, 0);
   items.push(['Every input row appears in exactly one group', total === m.records.length && m.records.every(r => ['clean', 'duplicate', 'unparseable', 'excluded'].includes(r.status)), Object.entries(m.reconciliation.counts).filter(([, n]) => n).map(([k, n]) => `${n} ${{clean:'kept',duplicate:'duplicate',unparseable:'unreadable',excluded:'excluded'}[k]}`).join(' + ') + ` = ${total} input rows`]);
   const sum = Object.values(m.reconciliation.cents).reduce((a, b) => a + b, 0);
-  items.push(['known amounts reconcile to the cent', sum === m.reconciliation.known_input_cents, `${money(sum)} = ${money(m.reconciliation.known_input_cents)}; ${m.reconciliation.unknown_amount_rows} unknown kept out`]);
+  items.push(['Known input amounts add up correctly', sum === m.reconciliation.known_input_cents, `The groups account for all CAD ${money(sum)} of known input amounts. ${m.reconciliation.unknown_amount_rows} input rows have no readable amount and do not add to this total.`]);
   const review = m.records.filter(r => r.reasons.length).length;
   items.push(['The review sheet includes every flagged row', review === E.workbookTables(exportModel())['Needs review'].length, `${review} flagged`]);
   items.push(['The change log includes every edit', m.changes.length === m.base.changes.length && m.userChanges.length === S.decisions.filter(d => !d.undoneBy).length, `${m.changes.length.toLocaleString('en-CA')} automatic cleanup changes and ${m.userChanges.length.toLocaleString('en-CA')} review changes`]);
@@ -405,7 +405,7 @@ function viewBills(main, m, p) {
   if (flag === 'flagged') rows = rows.filter(r => r.reasons.length); if (flag === 'clean') rows = rows.filter(r => !r.reasons.length);
   if (reason) rows = rows.filter(r => r.reasons.some(x => reasonKey(x) === reason));
   rows = sortRows(rows, p.get('sort') || 'date:asc');
-  const PAGE = matchMedia('(max-width:700px)').matches ? 20 : 200, page = parseInt(p.get('page') || '0', 10), pages = Math.max(1, Math.ceil(rows.length / PAGE)), view = rows.slice(page * PAGE, page * PAGE + PAGE);
+  const PAGE = matchMedia('(max-width:700px)').matches ? 12 : 200, page = parseInt(p.get('page') || '0', 10), pages = Math.max(1, Math.ceil(rows.length / PAGE)), view = rows.slice(page * PAGE, page * PAGE + PAGE);
   const months = [...new Set(m.records.map(r => (r.date || '').slice(0, 7)).filter(Boolean))].sort();
   const sel = p.get('i');
   main.append(h('div', { class: 'page-head' }, h('h1', {}, 'Bills'), h('span', { class: 'muted' }, `Showing ${rows.length} ${showEx ? 'of all' : 'retained'} rows`), h('label', { class: 'check', style: 'margin-left:8px' }, h('input', { type: 'checkbox', checked: showEx, onchange: e => setParam('excluded', e.target.checked ? '1' : null) }), ` include excluded (${m.records.length - m.bills.length})`)));
@@ -546,8 +546,31 @@ function billBars(data, { unknownKeys = [] } = {}) {
 function chartCard(title, note, data, tableCols, key, opts) {
   const mode = (S.ui.chartMode || {})[key] || 'chart';
   const seg = h('div', { class: 'seg', role: 'radiogroup', 'aria-label': 'View as' }, ['chart', 'table'].map(x => h('button', { role: 'radio', 'aria-checked': mode === x ? 'true' : 'false', onclick: () => { S.ui.chartMode = { ...(S.ui.chartMode || {}), [key]: x }; render(); } }, x[0].toUpperCase() + x.slice(1))));
-  const body = mode === 'chart' ? billBars(data, opts) : h('div', { class: 'tablewrap' }, h('table', { class: 'data' }, h('thead', {}, h('tr', {}, tableCols.map(c => h('th', {}, c)))), h('tbody', {}, data.map(d => h('tr', { style: 'cursor:default' }, h('td', {}, d.k), h('td', { class: 'num' }, d.label), h('td', { class: 'num' }, d.n))))));
-  return h('div', { class: 'chart' }, h('div', { class: 'ch-head' }, h('h2', {}, title), seg, h('p', {}, note)), body);
+  const body = mode === 'chart' ? billBars(data, opts) : h('div', { class: 'tablewrap' }, h('table', { class: 'data compact-table' }, h('thead', {}, h('tr', {}, tableCols.map(c => h('th', {}, c)))), h('tbody', {}, data.map(d => h('tr', { style: 'cursor:default' }, h('td', {}, d.k), h('td', { class: 'num' }, d.label), h('td', { class: 'num' }, d.n))))));
+  return h('div', { class: 'chart' }, h('div', { class: 'ch-head' }, h('h2', {}, title), seg, h('p', {}, mode==='table'&&opts?.unknownKeys ? 'Amounts are in CAD. Uncategorised rows have no category yet.' : note)), body);
+}
+function merchantSummary(top,p,total) {
+  const phone=matchMedia('(max-width:700px)').matches;
+  const statsHead=()=>{
+    const spec=p.get('msort')||'total:desc';
+    return h('th',{scope:'col',class:'num'},h('div',{class:'stats-sort'},[['Rows','rows'],['Share','share']].map(([label,key])=>{
+      const head=thSort(label,key,p,'num','msort','total:desc'),button=head.firstChild;
+      button.setAttribute('aria-label','Sort by '+label.toLowerCase());
+      if(spec.startsWith(key+':'))button.append(spec.endsWith(':desc')?' ↓':' ↑');
+      return button;
+    })));
+  };
+  const table=h('table',{class:'data compact-table merchant-table'},
+    h('thead',{},h('tr',{},thSort('Merchant','merchant',p,null,'msort','total:desc'),
+      phone?thSort('Total CAD','total',p,'num','msort','total:desc'):thSort('Rows','rows',p,'num','msort','total:desc'),
+      phone?statsHead():thSort('Total CAD','total',p,'num','msort','total:desc'),
+      phone?null:thSort('Share','share',p,'num','msort','total:desc'))),
+    h('tbody',{},top.map(([name,x])=>h('tr',{style:'cursor:default'},h('td',{},name),
+      h('td',{class:'num'},phone?money(x.v):x.n),
+      h('td',{class:'num'},phone?h('span',{class:'merchant-stats'},h('span',{},x.n),h('span',{},(x.v/total*100).toFixed(1)+'%')):money(x.v)),
+      phone?null:h('td',{class:'num'},(x.v/total*100).toFixed(1)+'%')))));
+  return h('div',{class:'card'},h('h2',{},'Top merchants'),h('div',{class:'tablewrap'},table),
+    top.some(([name])=>name==='=SYNTHETIC_FORMULA_TEXT()')?h('p',{class:'hint sample-formula-note'},h('code',{},'=SYNTHETIC_FORMULA_TEXT()'),' is a formula cell in the sample workbook, kept as text. It is not evaluated.'):null);
 }
 function viewDashboard(main, m) {
   const bills = m.bills.filter(r => r.cents !== null), tot = bills.reduce((a, r) => a + r.cents, 0);
@@ -561,7 +584,7 @@ function viewDashboard(main, m) {
   const high = sortBy(m.bills.filter(r => r.cents !== null && Math.abs(r.cents) >= S.rules.threshold), p.get('hsort') || 'amount:desc', (r, key) => key === 'amount' ? Math.abs(r.cents) : key === 'src' ? r.id.split(':').map(Number).reduce((a, b) => a * 10000 + b, 0) : String(r[key] ?? ''));
   main.append(h('div', { class: 'grid-2 dashboard-charts' }, chartCard('Monthly totals', 'Kept bills grouped by invoice month. Amounts are in CAD.', monthly, ['Month', 'Total CAD', 'Rows'], 'monthly'), chartCard('Category totals', 'Amounts are in CAD. Striped bars have no category yet.', cats, ['Category', 'Total CAD', 'Rows'], 'cats', { unknownKeys: ['Uncategorised'] })));
   main.append(h('div', { class: 'grid-2 dashboard-summaries', style: 'margin-top:16px' },
-    h('div', { class: 'card' }, h('h2', {}, 'Top merchants'), h('div', { class: 'tablewrap' }, h('table', { class: 'data' }, h('thead', {}, h('tr', {}, thSort('Merchant', 'merchant', p, null, 'msort', 'total:desc'), thSort('Rows', 'rows', p, 'num', 'msort', 'total:desc'), thSort('Total CAD', 'total', p, 'num', 'msort', 'total:desc'), thSort('Share', 'share', p, 'num', 'msort', 'total:desc'))), h('tbody', {}, top.map(([k, x]) => h('tr', { style: 'cursor:default' }, h('td', {}, k), h('td', { class: 'num' }, x.n), h('td', { class: 'num' }, money(x.v)), h('td', { class: 'num' }, (x.v / tot * 100).toFixed(1) + '%'))))))),
+    merchantSummary(top,p,tot),
     h('div', { class: 'card' }, h('h2', {}, `Bills and refunds of CAD ${E.thresholdLabel(S.rules.threshold)} or more (${high.length})`), h('p', { class: 'hint' }, 'Select a row to inspect its source and review details.'), h('div', { class: 'tablewrap' }, h('table', { class: 'data' }, h('thead', {}, h('tr', {}, thSort('Source', 'src', p, null, 'hsort', 'amount:desc'), thSort('Invoice', 'invoice', p, null, 'hsort', 'amount:desc'), thSort('Merchant', 'merchant', p, null, 'hsort', 'amount:desc'), thSort('Amount, CAD', 'amount', p, 'num', 'hsort', 'amount:desc'))), h('tbody', {}, high.map(r => h('tr', { tabindex: '0', onkeydown: event => { if (event.key === 'Enter') go('bills', { i: r.id }); }, onclick: () => go('bills', { i: r.id }) }, h('td', {}, srcChip(r.id, false)), h('td', { class: 'mono' }, r.invoice), h('td', {}, r.merchant), h('td', { class: 'num' }, money(r.cents))))))))));
   const columns=main.querySelector('.dashboard-charts'), summaries=main.querySelector('.dashboard-summaries');
   const [monthlyCard,categoryCard]=[...columns.children],[merchantCard,highCard]=[...summaries.children];
@@ -588,16 +611,28 @@ function viewLog(main, m, p) {
 }
 
 function viewExport(main, m) {
-  const checks = S.checks || runChecks(), bad = checks.items.filter(c => !c.ok).length, rec = m.reconciliation, flagged = m.records.filter(r => r.reasons.length).length;
-  const stamp = new Date().toISOString().slice(0, 10), base = S.source.kind === 'sample' ? `seed${S.source.seed}` : (S.source.name || 'file').replace(/\.[^.]+$/, '');
-  main.append(h('div', { class: 'page-head' }, h('h1', {}, 'Export')));
-  main.append(h('div', { class: 'grid-2' },
-    h('div', { class: 'card' }, h('h2', {}, 'Workbook · cleaned-bills.xlsx'), h('p', { class: 'hint' }, `Five sheets: Summary, Bills (${m.bills.length}), Needs review (${flagged}; ${m.decidedCount} decided), Duplicates (${m.dups.length}) and Change log (${(m.changes.length + m.userChanges.length).toLocaleString('en-CA')}).`), h('p', { class: 'hint', style: 'margin-top:4px' }, 'The same bills, rules and review decisions always produce the same file contents. Your workbook is created in this browser.'),
-      h('div', { class: 'toolbar', style: 'margin-top:12px' }, h('button', { class: 'btn btn-primary', onclick: async e => { e.target.textContent = 'Building…'; download(`cleaned-bills-${base}-${stamp}.xlsx`, await exportWorkbook(), 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'); e.target.textContent = 'Download workbook'; } }, 'Download workbook'), bad ? h('span', { class: 'muted', style: 'color:var(--danger)' }, `${bad} check failed — see Overview`) : null)),
-    h('div', { class: 'card' }, h('h2', {}, 'Checks before you download'), h('ul', { class: 'checks' }, checks.items.map(c => h('li', { class: c.ok ? 'ok' : 'bad', title: c.detail }, h('span', {}, c.name, ' ', h('span', { class: 'faint' }, '· ' + c.detail))))), h('div', { class: 'toolbar', style: 'margin-top:12px' }, h('button', { class: 'btn', onclick: () => { runChecks(); render(); } }, 'Run checks again'), h('span', { class: 'hint' }, `Last checked at ${hhmm(checks.at)} UTC`)), h('details', { class: 'technical-check' }, h('summary', {}, 'Compare the sample with the command-line version'), h('p', { class: 'hint' }, 'This optional check has not run here. It applies only to the supplied sample without review decisions or added rules. Save the input workbook, cleaned workbook and ledger in one folder, then run:'), h('code', {}, 'python3 -B demo.py check --out <folder> --no-repeat')))));
-  main.append(h('div', { class: 'grid-2', style: 'margin-top:16px' },
-    h('div', { class: 'card' }, h('h2', {}, 'ledger.json'), h('p', { class: 'hint' }, 'A complete record of the source rows, cleanup changes, review decisions and rules.'), h('div', { class: 'toolbar', style: 'margin-top:12px' }, h('button', { class: 'btn', onclick: () => download(`ledger-${base}-${stamp}.json`, exportLedger(), 'application/json') }, 'Download ledger.json'), S.source.kind === 'sample' ? h('button', { class: 'btn', onclick: async () => download(`dirty-input-${base}.xlsx`, await exportInput(), 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet') }, 'Download input workbook') : null)),
-    h('div', { class: 'card' }, h('h2', {}, 'rules.json'), h('p', { class: 'hint' }, `${S.rules.aliases.length} reviewer rules · threshold CAD ${E.thresholdLabel(S.rules.threshold)}`), h('div', { class: 'toolbar', style: 'margin-top:12px' }, h('button', { class: 'btn', onclick: () => download('rules.json', JSON.stringify({ aliases: S.rules.aliases.map(({ alias, category }) => ({ alias, category })), high_cad: S.rules.threshold / 100 }, null, 2), 'application/json') }, 'Download rules.json')))));
+  const checks=S.checks||runChecks(),bad=checks.items.filter(c=>!c.ok).length,rec=m.reconciliation,flagged=m.records.filter(r=>r.reasons.length).length;
+  const stamp=new Date().toISOString().slice(0,10),base=S.source.kind==='sample'?`seed${S.source.seed}`:(S.source.name||'file').replace(/\.[^.]+$/,'');
+  main.append(h('div',{class:'page-head'},h('h1',{},'Export')));
+  main.append(h('div',{class:'grid-2'},
+    h('section',{class:'card'},h('h2',{},'Cleaned bills workbook'),
+      h('p',{class:'hint'},`An Excel workbook with five sheets: Summary, Bills (${m.bills.length}), Needs review (${flagged}; ${m.decidedCount} decided), Duplicates (${m.dups.length}) and Change log (${(m.changes.length+m.userChanges.length).toLocaleString('en-CA')}).`),
+      h('p',{class:'hint',style:'margin-top:12px'},'The same bills, rules and review decisions produce the same file contents. Your workbook is created in this browser.'),
+      h('div',{class:'toolbar',style:'margin-top:16px'},h('button',{class:'btn btn-primary',onclick:async e=>{e.target.textContent='Building…';download(`cleaned-bills-${base}-${stamp}.xlsx`,await exportWorkbook(),'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');e.target.textContent='Download cleaned workbook';}},'Download cleaned workbook'),bad?h('span',{class:'hint'},`${bad} checks need attention before you download.`):null)),
+    h('section',{class:'card'},h('h2',{},'Totals and checks'),
+      h('dl',{class:'export-totals'},
+        h('div',{},h('dt',{},`All ${m.records.length} input rows · CAD ${money(rec.known_input_cents)} known`),h('dd',{},`Includes kept bills, duplicates, unreadable rows and any review exclusions. ${rec.unknown_amount_rows} input rows have no readable amount and do not add to this total.`)),
+        h('div',{},h('dt',{},`${m.bills.length} kept bills · CAD ${money(rec.cents.clean)}`),h('dd',{},'This is the Dashboard total. It leaves out duplicates, unreadable rows and review exclusions.'))),
+      h('ul',{class:'checks'},checks.items.map(c=>h('li',{class:c.ok?'ok':'bad'},h('span',{},c.name,'. ',h('span',{class:'faint'},c.detail))))),
+      h('div',{class:'toolbar',style:'margin-top:12px'},h('button',{class:'btn',onclick:()=>{runChecks();render();}},'Run checks again'),h('span',{class:'hint'},`Last checked at ${hhmm(checks.at)} UTC`)),
+      h('details',{class:'technical-check'},h('summary',{},'Compare the sample with the command-line version'),h('p',{class:'hint'},'This optional check applies to the supplied sample without review decisions or added rules. Save the original sample workbook, cleaned workbook and audit record in one folder, then run:'),h('code',{},'python3 -B demo.py check --out <folder> --no-repeat')))));
+  main.append(h('div',{class:'export-downloads'},
+    h('section',{class:'card'},h('h2',{},'Complete audit record'),h('p',{class:'hint'},'Every source row, cleanup change, review decision and rule, saved as ledger.json.'),h('div',{class:'toolbar',style:'margin-top:16px'},h('button',{class:'btn',onclick:()=>download(`ledger-${base}-${stamp}.json`,exportLedger(),'application/json')},'Download audit record'))),
+    h('section',{class:'card'},h('h2',{},'Reusable category rules'),h('p',{class:'hint'},`${S.rules.aliases.length} rules you added, plus the CAD ${E.thresholdLabel(S.rules.threshold)} large-amount limit. Saved as rules.json for reuse with another workbook.`),h('div',{class:'toolbar',style:'margin-top:16px'},h('button',{class:'btn',onclick:()=>download('rules.json',JSON.stringify({aliases:S.rules.aliases.map(({alias,category})=>({alias,category})),high_cad:S.rules.threshold/100},null,2),'application/json')},'Download category rules'))),
+    S.source.kind==='sample'?h('section',{class:'card'},h('h2',{},'Original sample workbook'),h('p',{class:'hint'},'The generated sample before cleanup or review. Saved as an Excel workbook so you can inspect the original cells.'),h('div',{class:'toolbar',style:'margin-top:16px'},h('button',{class:'btn',onclick:async()=>download(`dirty-input-${base}.xlsx`,await exportInput(),'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')},'Download original sample'))):null));
+  const grid=main.querySelector('.grid-2'),downloads=main.querySelector('.export-downloads');
+  grid.className='export-grid';grid.children[1].classList.add('export-checks');
+  grid.append(...downloads.children);downloads.remove();
 }
 
 /* ---------- nav / render / keyboard / init ---------- */
