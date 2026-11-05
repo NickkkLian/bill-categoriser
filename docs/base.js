@@ -68,7 +68,10 @@
     try { localStorage.setItem('bill-bench-theme', root.dataset.theme); } catch {}
     fade(document.querySelector('main'));
   });
-  document.querySelectorAll('select').forEach((select, index) => {
+  let controlIndex = 0;
+  function enhanceSelect(select) {
+    if (select.closest('.combo')) return;
+    const index = controlIndex++;
     const wrapper = document.createElement('div');
     wrapper.className = 'combo';
     const trigger = document.createElement('button');
@@ -81,6 +84,7 @@
     const menu = document.createElement('div');
     menu.id = `options-${index}`;
     menu.className = 'combo-menu';
+    if (menu.showPopover) menu.setAttribute('popover', 'manual');
     menu.setAttribute('role', 'listbox');
     menu.setAttribute('aria-label', label);
     menu.hidden = true;
@@ -105,21 +109,39 @@
     };
     rebuild();
     const update = () => {
-      trigger.innerHTML = `<span>${select.selectedOptions[0]?.textContent || 'Choose'}</span>${icons.chevron}`;
+      const text = document.createElement('span');
+      text.textContent = select.selectedOptions[0]?.textContent || 'Choose';
+      trigger.replaceChildren(text);
+      trigger.insertAdjacentHTML('beforeend', icons.chevron);
       options.forEach((option, position) => option.setAttribute('aria-selected', String(position === select.selectedIndex)));
     };
-    const close = () => { menu.hidden = true; trigger.setAttribute('aria-expanded', 'false'); };
-    const open = () => { menu.hidden = false; trigger.setAttribute('aria-expanded', 'true'); options[select.selectedIndex]?.focus(); };
+    const close = () => {
+      if (menu.isConnected && menu.matches(':popover-open')) menu.hidePopover();
+      menu.hidden = true;
+      trigger.setAttribute('aria-expanded', 'false');
+    };
+    const open = () => {
+      menu.hidden = false;
+      menu.style.minWidth = Math.min(trigger.getBoundingClientRect().width, innerWidth - 40) + 'px';
+      menu.style.maxWidth = Math.min(340, innerWidth - 40) + 'px';
+      if (menu.showPopover) menu.showPopover();
+      const bounds = trigger.getBoundingClientRect();
+      menu.style.position = 'fixed';
+      menu.style.left = Math.max(20, Math.min(bounds.left, innerWidth - 20 - menu.offsetWidth)) + 'px';
+      menu.style.top = Math.max(12, Math.min(bounds.bottom + 8, innerHeight - 12 - menu.offsetHeight)) + 'px';
+      trigger.setAttribute('aria-expanded', 'true');
+      options[select.selectedIndex]?.focus();
+    };
     select.before(wrapper);
     wrapper.append(select, trigger, menu);
     select.hidden = true;
     trigger.addEventListener('click', () => menu.hidden ? open() : close());
     trigger.addEventListener('keydown', event => {
-      if (['ArrowDown', 'ArrowUp'].includes(event.key)) { event.preventDefault(); open(); }
+      if (['ArrowDown', 'ArrowUp'].includes(event.key)) { event.preventDefault(); event.stopPropagation(); open(); }
     });
     menu.addEventListener('keydown', event => {
       let position = options.indexOf(document.activeElement);
-      if (event.key === 'Escape') { close(); trigger.focus(); }
+      if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); close(); trigger.focus(); return; }
       if (event.key === 'Tab') close();
       if (event.key === 'ArrowDown') position = (position + 1) % options.length;
       else if (event.key === 'ArrowUp') position = (position + options.length - 1) % options.length;
@@ -128,14 +150,25 @@
       else if (event.key.length === 1) position = options.findIndex(option => option.textContent.toLowerCase().startsWith(event.key.toLowerCase()));
       else return;
       event.preventDefault();
+      event.stopPropagation();
       options[position]?.focus();
     });
-    document.addEventListener('pointerdown', event => { if (!wrapper.contains(event.target)) close(); });
     select.addEventListener('change', update);
     select.addEventListener('ui-sync', update);
     new MutationObserver(() => { rebuild(); update(); }).observe(select, {attributes: true, subtree: true, childList: true});
     update();
+  }
+  document.addEventListener('pointerdown', event => {
+    document.querySelectorAll('.combo').forEach(wrapper => {
+      if (wrapper.contains(event.target)) return;
+      const menu = wrapper.querySelector('.combo-menu');
+      if (menu.matches(':popover-open')) menu.hidePopover();
+      menu.hidden = true;
+      wrapper.querySelector('.combo-trigger').setAttribute('aria-expanded', 'false');
+    });
   });
+  window.ui.enhanceControls = scope => scope.querySelectorAll('select').forEach(enhanceSelect);
+  window.ui.enhanceControls(document);
   document.querySelectorAll('.segmented').forEach(group => {
     const indicator = document.createElement('span');
     indicator.className = 'segment-indicator';
@@ -166,6 +199,27 @@
     document.fonts.ready.then(update);
     update();
   });
+
+  window.ui.enhanceTables = scope => scope.querySelectorAll('table').forEach(table => {
+    if (!table.tHead) return;
+    table.classList.add('record-table');
+    const labels = [...table.tHead.rows[0].cells].map(cell => cell.textContent.trim());
+    for (const row of table.tBodies[0]?.rows || []) {
+      if (row.classList.contains('row-detail')) continue;
+      [...row.cells].forEach((cell, index) => {
+        if (cell.colSpan > 1 || cell.querySelector(':scope > .cell-value')) return;
+        const value = document.createElement('span');
+        value.className = 'cell-value';
+        value.append(...cell.childNodes);
+        const label = document.createElement('span');
+        label.className = 'cell-label';
+        label.textContent = labels[index];
+        cell.append(label, value);
+      });
+    }
+  });
+  window.ui.enhanceTables(document);
+
   document.querySelectorAll('table').forEach(table => {
     table.querySelectorAll('th').forEach((head, column) => {
       const button = document.createElement('button');
@@ -181,7 +235,7 @@
         const body = table.tBodies[0];
         body.querySelector('.row-detail')?.remove();
         const rows = [...body.rows];
-        const value = row => row.cells[column]?.textContent.trim() || '';
+        const value = row => (row.cells[column]?.querySelector('.cell-value') || row.cells[column])?.textContent.trim() || '';
         rows.sort((a,b) => value(a).localeCompare(value(b), undefined, {numeric: true}) * (ascending ? 1 : -1));
         body.replaceChildren(...rows);
         fade(body);
@@ -230,6 +284,12 @@
       nativeOpen();
     };
     dialog.addEventListener('cancel', event => { event.preventDefault(); dialog.close(); });
+    dialog.addEventListener('close', () => {
+      const active = document.activeElement;
+      if (active !== document.body && active?.checkVisibility({checkVisibilityCSS:true})) return;
+      const target = [...document.querySelectorAll('[data-main-action],header button,header a')].find(element => !element.disabled && element.checkVisibility({checkVisibilityCSS:true}));
+      target?.focus();
+    });
     dialog.querySelectorAll('form[method=dialog]').forEach(form => form.addEventListener('submit', event => {
       event.preventDefault();
       dialog.close(event.submitter?.value);

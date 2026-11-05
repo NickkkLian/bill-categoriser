@@ -1,26 +1,12 @@
 /* Approved ledger connected to the existing billing engine and persisted decisions. */
 (() => {
 const $ = selector => document.querySelector(selector);
-const merchantAliases = {
-  'Demo Supply 01': ['Cedar Stationery', 'CS'],
-  'Demo Utility 02': ['Northline Energy', 'NE'],
-  'Demo Software 03': ['Copperlane Software', 'CL'],
-  'Demo Lease 04': ['Harbour Workspace', 'HW'],
-  'Demo Carrier 05': ['Meridian Freight', 'MF'],
-  'Demo Other 06': ['Oakfield Services', 'OS'],
-  '=SYNTHETIC_FORMULA_TEXT()': ['Oakfield Services', 'OS'],
-};
 let records = [];
 function syncRecords() {
   const model = window.BillBench.model();
-  records = model.records.map(record => {
-    const alias = window.BillBench.state.source.kind === 'sample' && merchantAliases[record.merchant];
-    const serial = String(record.invoice || '').match(/\d+/)?.[0];
-    return { ...record, merchant: alias ? alias[0] : record.merchant,
-      invoice: alias && serial ? `${alias[1]}-${2500 + Number(serial)}` : record.invoice,
+  records = model.records.map(record => ({ ...record,
       raw: [...record.raw], reasons: record.reasons.filter(reason => !record.decided || record.decided === 'category' || reason !== 'unmapped merchant'),
-      excluded: record.status === 'excluded' };
-  });
+      excluded: record.status === 'excluded' }));
 }
 let sheet = 'all';
 let selected;
@@ -132,6 +118,7 @@ function render() {
   document.querySelector('.excluded-part').style.flex = excluded.length;
   document.querySelector('.excluded-part').hidden = !excluded.length;
   ui.fade($('#ledger-body'));
+  ui.enhanceTables(document.querySelector('.ledger'));
 }
 function review(record) {
   selected = record;
@@ -143,13 +130,18 @@ function review(record) {
   row?.scrollIntoView({ block: 'nearest' });
   $('#review-source').textContent = `${record.source_file}, ${record.source_sheet}, row ${record.source_row}`;
   $('#review-merchant').textContent = `${record.merchant} · CAD ${money(record.cents)}`;
+  $('#review-invoice').textContent = record.invoice || 'Missing';
+  $('#review-date').textContent = record.date || 'Missing';
   $('#original-values').replaceChildren();
   record.headers.forEach((name, index) => {
     const row = document.createElement('div');
     const label = document.createElement('span');
     const value = document.createElement('span');
     label.textContent = name;
-    value.textContent = record.raw[index] ?? 'Empty in source file';
+    const original = record.raw[index];
+    value.textContent = original === null || original === undefined || String(original).trim() === ''
+      ? /date|billed on/i.test(name) ? 'Missing' : 'Empty in source file'
+      : original;
     row.append(label, value);
     $('#original-values').append(row);
   });
@@ -173,12 +165,12 @@ function review(record) {
   add('text',{x:28,y:76},record.merchant);
   add('text',{x:28,y:104,class:'small-text'},`Invoice ${record.invoice || 'Missing'}`);
   add('path',{d:'M28 124H252M28 220H252'});
-  add('text',{x:28,y:152,class:'small-text'},`Date · ${record.date||'Missing in source'}`);
+  add('text',{x:28,y:152,class:'small-text'},`Date · ${record.date||'Missing'}`);
   add('text',{x:28,y:184,class:'small-text'},`${record.source_sheet} · row ${record.source_row}`);
   add('text',{x:28,y:256},`CAD ${money(record.cents)}`);
   add('text',{x:28,y:288,class:'small-text'},'Generated from original cells');
   const caption=document.createElement('figcaption');
-  caption.textContent='A visual reading of this row, using the same fictional aliases';
+  caption.textContent='Generated from this source row and its reviewed fields';
   $('#bill-thumbnail').replaceChildren(svg,caption);
   $('#full-review').href = `#/review?i=${encodeURIComponent(record.id)}`;
   $('#review-dialog').showModal();
@@ -235,6 +227,10 @@ function updateWorkspace() {
   if (overview) { syncRecords(); render(); paintLedger(); }
   $('.file-chip').textContent = window.BillBench.state.source?.kind === 'file' ? window.BillBench.state.source.name : 'dirty-input.xlsx';
   document.querySelector('header .badge').textContent = window.BillBench.state.source?.kind === 'file' ? 'Local workbook' : 'Sample workbook';
+  if (window.BillBench.state.rows) {
+    const model = window.BillBench.model();
+    document.querySelector('#workbook-summary').textContent = `${model.records.length} rows from ${window.BillBench.state.source.kind === 'sample' ? 'the synthetic sample workbook' : window.BillBench.state.source.name}. ${model.reconciliation.unknown_amount_rows} source rows have amounts that cannot be read. Merchant names and invoice numbers follow the engine and original source cells.`;
+  }
   document.documentElement.dataset.ready = 'true';
 }
 window.addEventListener('bill-render', updateWorkspace);

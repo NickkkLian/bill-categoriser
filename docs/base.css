@@ -76,3 +76,45 @@ footer { padding: 24px 32px; font-size: 12px; color: var(--muted); display: flex
 .combo-menu button[aria-selected=true], .combo-menu button:focus { background: var(--selection); }
 @media(max-width:700px) { footer { padding: 20px; display: block; } footer span { display: block; margin-top: 8px; } }
 @media(prefers-reduced-motion:reduce) { *,*::before,*::after { transition-duration: 0s !important; animation-duration: 0s !important; scroll-behavior: auto !important; } }
+
+.combo-menu[hidden] { display: none !important; }
+
+.cell-label { display: none; }
+@media(max-width:700px) {
+  .table-scroll,.tablewrap { overflow: visible !important; max-height: none !important; }
+  table.record-table, .ledger table.record-table, #legacy-workspace table.record-table {
+    display: block; width: 100%; min-width: 0; max-width: 100%; table-layout: auto;
+  }
+  table.record-table thead { display: block; position: static; }
+  table.record-table thead tr { display: flex; flex-wrap: wrap; gap: 8px; padding: 12px; }
+  table.record-table th, .ledger table.record-table th, #legacy-workspace table.record-table th {
+    display: block; position: static; width: auto; max-width: 100%; height: auto;
+    padding: 0; border: 0; white-space: normal; background: transparent;
+  }
+  table.record-table th button, #legacy-workspace table.record-table th button {
+    display: inline-flex; min-height: 36px; padding: 8px 12px; background: var(--soft);
+    border-radius: 6px; white-space: normal; font: 700 12px/1.5 var(--body);
+  }
+  table.record-table tbody { display: grid; gap: 12px; padding: 12px; }
+  table.record-table tbody tr { display: block; padding: 12px; background: var(--soft); border-radius: 12px; }
+  table.record-table td, .ledger table.record-table td, #legacy-workspace table.record-table td {
+    display: grid; grid-template-columns: minmax(72px, .8fr) minmax(0, 1.4fr);
+    align-items: baseline; gap: 12px; width: auto; max-width: 100%; height: auto;
+    padding: 8px 0; border: 0; white-space: normal; text-align: left;
+    overflow: visible; overflow-wrap: anywhere; position: static;
+  }
+  table.record-table td.num, #legacy-workspace table.record-table td.num { text-align: left; }
+  table.record-table .cell-label { display: block; color: var(--muted); font: 400 12px/1.5 var(--body); }
+  table.record-table .cell-value { display: block; min-width: 0; font-size: 14px; }
+  table.record-table .cell-value > button { max-width: 100%; }
+  table.record-table .row-detail td { display: block; }
+  .tab-scroll,.tab-overflow { overflow: visible; width: 100%; max-width: 100%; }
+  .tab-scroll { mask-image: none; }
+  .tab-overflow.is-overflow::after,.tab-overflow .tab-more { display: none !important; }
+  .segmented,.workbook-sheets { display: flex; flex-wrap: wrap; width: 100%; gap: 4px; }
+  .segmented .segment-indicator { display: none; }
+  .segmented button[aria-current],.segmented button[aria-pressed=true] { background: var(--text); color: var(--base); }
+  .segmented button { white-space: normal; }
+}
+
+.combo-menu[popover] { margin: 0; inset: auto; border: 0; }
