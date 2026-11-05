@@ -1,0 +1,9 @@
+/* Suite scale contract 1.0.0. Passive until an app opts in. No root font mutation. */
+:root {
+  --suite-screen-unit: clamp(16px, calc(100vw * 16 / 1230), calc(16px * 1920 / 1230));
+  --suite-text-min: calc(var(--suite-screen-unit) * .75);
+}
+html[data-suite-scale="fluid"] {
+  /* A baseline CSS pixel; 1px through 1230, 1920/1230 px at and above 1920. */
+  --suite-px: calc(var(--suite-screen-unit) / 16);
+}
