@@ -249,3 +249,118 @@ header .brand { text-decoration: none; }
 }
 
 #legacy-workspace .combo-trigger { height: auto; min-height: 40px; padding: 8px 12px; }
+
+/* Complete labels and compact facts, including the headers of phone record lists. */
+#legacy-workspace table.record-table th.num button { width: auto; justify-content: flex-start; box-sizing: border-box; }
+#legacy-workspace .dashboard-summaries > .card,
+#legacy-workspace .dashboard-summaries .tablewrap,
+#legacy-workspace .dashboard-summaries table,
+#legacy-workspace .merchant-rules .tablewrap,
+#legacy-workspace .merchant-rules table { width: 100%; }
+#legacy-workspace .rules-layout { display: grid; grid-template-columns: minmax(0,1.65fr) minmax(300px,1fr); gap: 16px; align-items: start; }
+#legacy-workspace .rule-settings { display: grid; gap: 16px; min-width: 0; }
+#legacy-workspace .rule-count-note { margin-bottom: 16px; }
+#legacy-workspace .rule-settings .rule-edit { margin-top: 12px; }
+#legacy-workspace .rules-table td { max-width: none; }
+#legacy-workspace .rules-table .rule-edit { flex-wrap: nowrap; }
+#legacy-workspace .rules-table .combo { min-width: 145px; }
+#legacy-workspace .compact-bars { display: grid; gap: 12px; }
+#legacy-workspace .compact-bar-row { display: grid; grid-template-columns: 114px minmax(0,1fr) 108px; align-items: center; gap: 12px; min-height: 24px; font-size: 14px; }
+#legacy-workspace .compact-bar-track { height: 20px; background: var(--soft); border-radius: 4px; }
+#legacy-workspace .compact-bar-track > span { display: block; height: 100%; background: var(--muted); border-radius: 4px; }
+#legacy-workspace .compact-bar-track > .unknown-bar { background: repeating-linear-gradient(135deg,var(--muted) 0 3px,var(--soft) 3px 6px); }
+#legacy-workspace .compact-bar-row strong { font-size: 14px; text-align: right; }
+#legacy-workspace .dashboard-columns { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 16px; align-items: start; }
+#legacy-workspace .dashboard-column { display: grid; gap: 16px; min-width: 0; }
+#legacy-workspace .dashboard-column > .card,#legacy-workspace .dashboard-column .tablewrap,#legacy-workspace .dashboard-column table { width: 100%; }
+#legacy-workspace .technical-check { margin-top: 16px; font-size: 14px; }
+#legacy-workspace .technical-check summary { cursor: pointer; padding: 8px 0; }
+#legacy-workspace .technical-check code { display: block; overflow-wrap: anywhere; margin-top: 8px; }
+#bill-thumbnail { margin: 0; padding: 16px; max-width: none; align-self: start; border-radius: 8px; }
+#bill-thumbnail h4 { margin: 0 0 12px; font-size: 16px; }
+.preview-fields { display: grid; grid-template-columns: max-content minmax(0,1fr); gap: 8px 12px; font-size: 14px; line-height: 1.5; }
+.preview-fields dt { color: var(--muted); }
+.preview-fields dd { margin: 0; overflow-wrap: anywhere; }
+#bill-thumbnail figcaption { margin-top: 16px; }
+@media(max-width:1100px) {
+  #legacy-workspace .dashboard-columns { grid-template-columns: minmax(0,1fr); }
+  #legacy-workspace .rules-layout { grid-template-columns: minmax(0,1fr); }
+  #legacy-workspace .rule-settings { grid-template-columns: repeat(auto-fit,minmax(min(100%,300px),1fr)); }
+}
+@media(max-width:700px) {
+  #legacy-workspace table.record-table thead th { flex: 0 0 auto; overflow: visible; text-align: left; }
+  #legacy-workspace table.record-table thead th:not(:has(button)) { display: none; }
+  #legacy-workspace table.record-table th button { width: auto; max-width: 100%; justify-content: flex-start; box-sizing: border-box; }
+  #legacy-workspace table.record-table td,#legacy-workspace table.record-table td.num {
+    grid-template-columns: 92px minmax(0,1fr); gap: 12px; text-align: left;
+    background: transparent; box-shadow: none;
+  }
+  #legacy-workspace table.record-table .cell-value { text-align: left; }
+  #legacy-workspace table.record-table td[data-empty=true] { display: none; }
+  #legacy-workspace table.record-table .cat { padding: 0; margin: 0; background: transparent; }
+  #legacy-workspace table.record-table .cat::before { content: none; }
+  #legacy-workspace table.record-table .chip { padding: 0; background: transparent; }
+  #legacy-workspace .rules-table .rule-edit { flex-wrap: wrap; }
+  #legacy-workspace .rules-table .combo { min-width: 0; width: 100%; }
+  #legacy-workspace .compact-bar-row { grid-template-columns: 96px minmax(0,1fr) 84px; gap: 8px; font-size: 12px; }
+  #legacy-workspace .compact-bar-row strong { font-size: 12px; }
+  #review-dialog .source-preview { display: grid; grid-template-columns: minmax(0,1fr); gap: 16px; }
+  #bill-thumbnail { width: 100%; margin: 0; }
+}
+
+#legacy-workspace .nav { flex-wrap: wrap; overflow: visible; }
+#legacy-workspace .insp-head h2 { overflow: visible; line-height: 1.3; }
+#legacy-workspace .main { container-type: inline-size; container-name: workbook; }
+#legacy-workspace table.data { width: 100%; max-width: 100%; overflow-wrap: anywhere; }
+#ledger-main .ledger table { width: 100%; min-width: 0; }
+#ledger-main .ledger table th:nth-child(n+9),#ledger-main .ledger table td:nth-child(n+9) { display: none; }
+/* Original dates, amounts and source-workbook names remain in each row's review sheet. */
+
+@container workbook (max-width:1000px) {
+  .tablewrap { width: 100% !important; max-height: none !important; overflow: visible !important; }
+  table.record-table, .ledger table.record-table, #legacy-workspace table.record-table {
+    display: block; width: 100%; min-width: 0; max-width: 100%; table-layout: auto;
+  }
+  table.record-table thead { display: block; position: static; }
+  table.record-table thead tr { display: flex; flex-wrap: wrap; gap: 8px; padding: 12px; }
+  table.record-table th, .ledger table.record-table th, #legacy-workspace table.record-table th {
+    display: block; position: static; width: auto; max-width: 100%; height: auto;
+    padding: 0; border: 0; white-space: normal; background: transparent;
+  }
+  table.record-table th button, #legacy-workspace table.record-table th button {
+    display: inline-flex; min-height: 36px; padding: 8px 12px; background: var(--soft);
+    border-radius: 6px; white-space: normal; font: 700 12px/1.5 var(--body);
+  }
+  table.record-table tbody { display: grid; gap: 12px; padding: 12px; }
+  table.record-table tbody tr { display: block; padding: 12px; background: var(--soft); border-radius: 12px; }
+  table.record-table td, .ledger table.record-table td, #legacy-workspace table.record-table td {
+    display: grid; grid-template-columns: minmax(72px, .8fr) minmax(0, 1.4fr);
+    align-items: baseline; gap: 12px; width: auto; max-width: 100%; height: auto;
+    padding: 8px 0; border: 0; white-space: normal; text-align: left;
+    overflow: visible; overflow-wrap: anywhere; position: static;
+  }
+  table.record-table td.num, #legacy-workspace table.record-table td.num { text-align: left; }
+  table.record-table .cell-label { display: block; color: var(--muted); font: 400 12px/1.5 var(--body); }
+  table.record-table .cell-value { display: block; min-width: 0; font-size: 14px; }
+  table.record-table .cell-value > button { max-width: 100%; }
+  table.record-table .row-detail td { display: block; }
+
+  #legacy-workspace table.record-table th { overflow: visible; flex: 0 0 auto; }
+  #legacy-workspace table.record-table th.num button { width: auto; }
+  #legacy-workspace table.record-table th:not(:has(button)) { display: none; }
+  #legacy-workspace table.record-table td,#legacy-workspace table.record-table td.num { grid-template-columns: 92px minmax(0,1fr); padding: 8px 0; text-align: left; background: transparent; }
+  #legacy-workspace table.record-table .cell-value { text-align: left; }
+  #legacy-workspace table.record-table td[data-empty=true] { display: none; }
+  #legacy-workspace table.record-table .cat { padding: 0; margin: 0; }
+  #legacy-workspace table.record-table .cat::before { content: none; }
+  #legacy-workspace table.record-table .chip { padding: 0; background: transparent; }
+}
+@media(min-width:701px) and (max-width:1100px) {
+  #ledger-main .ledger { background: transparent; overflow: visible; box-shadow: none; }
+  #ledger-main .ledger-top { background: var(--surface); }
+  #ledger-main .ledger-scroll { max-height: none; overflow: visible; background-image: none !important; }
+  #ledger-main .ledger table th,#ledger-main .ledger table td { width: auto; }
+  #ledger-main .ledger tbody tr { background: var(--surface); }
+  #ledger-main .ledger tbody tr.needs-review { background: var(--warning-soft); }
+  #ledger-main .ledger tbody tr:has(.danger) { background: var(--danger-soft); }
+}

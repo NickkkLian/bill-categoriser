@@ -150,28 +150,16 @@ function review(record) {
   $('#exclude').disabled = record.status !== 'clean' || record.excluded;
   $('#undo-review').hidden = !record.decided;
   $('#set-category').dispatchEvent(new Event('ui-sync'));
-  const svg = document.createElementNS('http://www.w3.org/2000/svg','svg');
-  svg.setAttribute('viewBox','0 0 280 320');
-  svg.setAttribute('role','img');
-  svg.setAttribute('aria-label',`Source row ${record.source_row}, ${record.merchant}, invoice ${record.invoice}, amount ${money(record.cents)} CAD`);
-  const add = (name,attrs,text) => {
-    const node=document.createElementNS(svg.namespaceURI,name);
-    Object.entries(attrs).forEach(([key,value])=>node.setAttribute(key,value));
-    if(text) { node.textContent=String(text).length > 30 ? String(text).slice(0,27) + '…' : text; }
-    svg.append(node);
-  };
-  add('rect',{x:8,y:8,width:264,height:304,rx:8});
-  add('text',{x:28,y:40},'Source row preview');
-  add('text',{x:28,y:76},record.merchant);
-  add('text',{x:28,y:104,class:'small-text'},`Invoice ${record.invoice || 'Missing'}`);
-  add('path',{d:'M28 124H252M28 220H252'});
-  add('text',{x:28,y:152,class:'small-text'},`Date · ${record.date||'Missing'}`);
-  add('text',{x:28,y:184,class:'small-text'},`${record.source_sheet} · row ${record.source_row}`);
-  add('text',{x:28,y:256},`CAD ${money(record.cents)}`);
-  add('text',{x:28,y:288,class:'small-text'},'Generated from original cells');
+  const title=document.createElement('h4');title.textContent='Source row preview';
+  const fields=document.createElement('dl');fields.className='preview-fields';
+  for(const [name,text] of [['Merchant',record.merchant],['Invoice',record.invoice||'Missing'],['Date',record.date||'Missing'],['Source',`${record.source_sheet} · row ${record.source_row}`],['Amount',`CAD ${money(record.cents)}`]]){
+    const label=document.createElement('dt');label.textContent=name;
+    const value=document.createElement('dd');value.textContent=text;
+    fields.append(label,value);
+  }
   const caption=document.createElement('figcaption');
   caption.textContent='Generated from this source row and its reviewed fields';
-  $('#bill-thumbnail').replaceChildren(svg,caption);
+  $('#bill-thumbnail').replaceChildren(title,fields,caption);
   $('#full-review').href = `#/review?i=${encodeURIComponent(record.id)}`;
   $('#review-dialog').showModal();
 }

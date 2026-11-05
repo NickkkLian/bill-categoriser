@@ -207,7 +207,10 @@
     for (const row of table.tBodies[0]?.rows || []) {
       if (row.classList.contains('row-detail')) continue;
       [...row.cells].forEach((cell, index) => {
-        if (cell.colSpan > 1 || cell.querySelector(':scope > .cell-value')) return;
+        if (cell.colSpan > 1) return;
+        const existing=cell.querySelector(':scope > .cell-value');
+        cell.dataset.empty=String(!(existing||cell).textContent.trim() && !(existing||cell).querySelector('svg,input,button,a'));
+        if (existing) return;
         const value = document.createElement('span');
         value.className = 'cell-value';
         value.append(...cell.childNodes);

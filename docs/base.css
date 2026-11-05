@@ -74,13 +74,13 @@ footer { padding: 24px 32px; font-size: 12px; color: var(--muted); display: flex
 .combo-menu[hidden] { display: block !important; opacity: 0; transform: translateY(-4px); pointer-events: none; visibility: hidden; }
 .combo-menu button { display: flex; width: 100%; text-align: left; justify-content: flex-start; background: transparent; }
 .combo-menu button[aria-selected=true], .combo-menu button:focus { background: var(--selection); }
-@media(max-width:700px) { footer { padding: 20px; display: block; } footer span { display: block; margin-top: 8px; } }
+@media(max-width:1100px) { footer { padding: 20px; display: block; } footer span { display: block; margin-top: 8px; } }
 @media(prefers-reduced-motion:reduce) { *,*::before,*::after { transition-duration: 0s !important; animation-duration: 0s !important; scroll-behavior: auto !important; } }
 
 .combo-menu[hidden] { display: none !important; }
 
 .cell-label { display: none; }
-@media(max-width:700px) {
+@media(max-width:1100px) {
   .table-scroll,.tablewrap { overflow: visible !important; max-height: none !important; }
   table.record-table, .ledger table.record-table, #legacy-workspace table.record-table {
     display: block; width: 100%; min-width: 0; max-width: 100%; table-layout: auto;
