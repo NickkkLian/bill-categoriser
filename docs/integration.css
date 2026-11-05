@@ -369,16 +369,16 @@ header .brand { text-decoration: none; }
   #ledger-main .ledger tbody tr:has(.danger) { background: var(--danger-soft); }
 }
 
-/* Review 2: intrinsic phone record grids, compact summaries and aligned rule editing. */
+/* Phone record grids, compact summaries and aligned rule editing. */
 
 @media(max-width:700px) {
   #legacy-workspace table.record-table { background: transparent; }
-  #legacy-workspace table.record-table tbody { padding: 0; justify-items: start; gap: 12px; }
+  #legacy-workspace table.record-table tbody { padding: 0; justify-items: stretch; gap: 12px; }
   #legacy-workspace table.record-table thead tr { padding: 8px 0 12px; }
   #legacy-workspace table.record-table tbody > tr {
-    display: grid; grid-template-columns: repeat(2,minmax(0,max-content));
+    display: grid; grid-template-columns: repeat(3,minmax(0,1fr));
     gap: 12px 20px; align-items: start; justify-content: start;
-    width: fit-content; max-width: 100%; padding: 12px; background: var(--soft);
+    width: 100%; max-width: 100%; padding: 12px; background: var(--soft);
   }
   #legacy-workspace table.record-table tbody td,#legacy-workspace table.record-table tbody td.num {
     display: flex; flex-direction: column; align-items: flex-start; gap: 4px;
@@ -396,12 +396,12 @@ header .brand { text-decoration: none; }
 
 @media(max-width:700px) {
   #ledger-main table.record-table { background: transparent; }
-  #ledger-main table.record-table tbody { padding: 0; justify-items: start; gap: 12px; }
+  #ledger-main table.record-table tbody { padding: 0; justify-items: stretch; gap: 12px; }
   #ledger-main table.record-table thead tr { padding: 8px 0 12px; }
   #ledger-main table.record-table tbody > tr {
-    display: grid; grid-template-columns: repeat(2,minmax(0,max-content));
+    display: grid; grid-template-columns: repeat(3,minmax(0,1fr));
     gap: 12px 20px; align-items: start; justify-content: start;
-    width: fit-content; max-width: 100%; padding: 12px; background: var(--soft);
+    width: 100%; max-width: 100%; padding: 12px; background: var(--soft);
   }
   #ledger-main table.record-table tbody td,#ledger-main table.record-table tbody td.num {
     display: flex; flex-direction: column; align-items: flex-start; gap: 4px;
@@ -448,7 +448,7 @@ header .brand { text-decoration: none; }
 @media(max-width:700px) {
   #legacy-workspace .merchant-rules { width: 100%; padding: 0; background: transparent; }
   #legacy-workspace table.record-table tbody > tr { background: var(--surface); }
-  #legacy-workspace table.record-table tbody > tr { max-width: min(100%,360px); }
+  #legacy-workspace table.record-table tbody > tr { max-width: 100%; }
   #legacy-workspace .tablewrap:has(>table.record-table:not(.compact-table)) { background: transparent; box-shadow: none; border-radius: 0; }
   #legacy-workspace .dashboard-column > .card:has(> .tablewrap > table.record-table:not(.compact-table)) { background: transparent; padding: 0; }
   #legacy-workspace table.rules-table tbody td:nth-child(1) { grid-column: 1/-1; grid-row: 1; }
@@ -477,4 +477,58 @@ header .brand { text-decoration: none; }
 @media(max-width:1100px) {
   #legacy-workspace .export-grid { grid-template-columns: minmax(0,1fr); }
   #legacy-workspace .export-grid > .card,#legacy-workspace .export-grid > .export-checks { grid-column: auto; grid-row: auto; }
+}
+
+/* Round 3: fill the available column, including records with short values. */
+@media(max-width:700px) {
+  #legacy-workspace .merchant-rules table.rules-table { width: 100%; }
+  #legacy-workspace .merchant-rules table.rules-table .combo { flex: 1 1 auto; min-width: 0; width: auto; }
+  #legacy-workspace .queue li { width: 100%; box-sizing: border-box; }
+  #legacy-workspace .queue li .amt { justify-self: end; max-width: 100%; text-align: right; white-space: normal; overflow-wrap: anywhere; }
+  #legacy-workspace .queue li .amt.undo-wrap { display: flex; flex-wrap: wrap; justify-content: flex-end; }
+  #legacy-workspace .queue li .who { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 4px 12px; }
+  #legacy-workspace .queue li .who small { margin: 0; }
+  #ledger-main table.record-table tbody > tr,
+  #legacy-workspace table.record-table:not(.compact-table) tbody > tr { box-sizing: border-box; gap: 12px; justify-content: stretch; }
+  #ledger-main table.record-table .cell-value,
+  #legacy-workspace table.record-table:not(.compact-table) .cell-value { width: 100%; overflow-wrap: anywhere; }
+  #ledger-main table.record-table tbody td:nth-child(3n),
+  #legacy-workspace table.record-table:not(.compact-table) tbody td:nth-child(3n) { align-items: flex-end; text-align: right; }
+  #ledger-main table.record-table tbody td:nth-child(3n) .cell-value,
+  #legacy-workspace table.record-table:not(.compact-table) tbody td:nth-child(3n) .cell-value { text-align: right; }
+  #legacy-workspace .card:has(> .tablewrap > table.record-table:not(.compact-table)) { width: 100%; }
+  #legacy-workspace table.record-table:not(.compact-table) tbody > tr:has(>td:nth-child(2):last-child),
+  #legacy-workspace table.record-table:not(.compact-table) tbody > tr:has(>td:nth-child(4):last-child),
+  #legacy-workspace table.rules-table tbody > tr { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  #legacy-workspace table.record-table:not(.compact-table) tbody > tr:has(>td:nth-child(2):last-child) > td:last-child,
+  #legacy-workspace table.rules-table tbody td:nth-child(4) { align-items: flex-end; text-align: right; }
+  #legacy-workspace table.rules-table tbody td:nth-child(4) .cell-value { text-align: right; }
+  #legacy-workspace table.record-table:not(.compact-table) tbody > tr:has(>td:nth-child(4):last-child) > td:nth-child(3),
+  #legacy-workspace .merchant-rules table.rules-table tbody td:nth-child(3) { align-items: flex-start; text-align: left; }
+  #legacy-workspace table.record-table:not(.compact-table) tbody > tr:has(>td:nth-child(4):last-child) > td:nth-child(3) .cell-value,
+  #legacy-workspace .merchant-rules table.rules-table tbody td:nth-child(3) .cell-value { text-align: left; }
+  #legacy-workspace table.record-table:not(.compact-table) tbody > tr:has(>td:nth-child(4):last-child) > td:nth-child(4) { align-items: flex-end; text-align: right; }
+  #legacy-workspace table.record-table:not(.compact-table) tbody > tr:has(>td:nth-child(4):last-child) > td:nth-child(4) .cell-value { text-align: right; }
+  #legacy-workspace .rules-table .combo { flex: 1 1 auto; min-width: 0; width: auto; }
+  #legacy-workspace table.bills-table tbody td:nth-child(1) { grid-area: 2/3; align-items: flex-end; }
+  #legacy-workspace table.bills-table tbody td:nth-child(2) { grid-area: 2/1; }
+  #legacy-workspace table.bills-table tbody td:nth-child(3) { grid-area: 2/2; align-items: flex-start; }
+  #legacy-workspace table.bills-table tbody td:nth-child(4) { grid-area: 1/1/2/3; }
+  #legacy-workspace table.bills-table tbody td:nth-child(5) { grid-area: 3/1/4/3; }
+  #legacy-workspace table.bills-table tbody td:nth-child(6) { grid-area: 1/3; }
+  #legacy-workspace table.bills-table tbody td:nth-child(7) { grid-area: 4/1/5/4; }
+  #legacy-workspace table.bills-table tbody td:nth-child(8) { grid-area: 3/3; align-items: flex-end; }
+  #legacy-workspace table.bills-table tbody td:nth-child(1) .cell-value { text-align: right; }
+  #legacy-workspace table.bills-table tbody td:nth-child(3) .cell-value { text-align: left; }
+  #ledger-main .ledger .badge { white-space: normal; max-width: 100%; overflow-wrap: anywhere; }
+  #ledger-body > tr > td:nth-child(1) { grid-area: 3/2; }
+  #ledger-body > tr > td:nth-child(2) { grid-area: 1/1/2/3; }
+  #ledger-body > tr > td:nth-child(3) { grid-area: 2/1; align-items: flex-start; text-align: left; }
+  #ledger-body > tr > td:nth-child(3) .cell-value { text-align: left; }
+  #ledger-body > tr > td:nth-child(4) { grid-area: 2/2; }
+  #ledger-body > tr > td:nth-child(5) { grid-area: 3/1; }
+  #ledger-body > tr > td:nth-child(6) { grid-area: 2/3; }
+  #ledger-body > tr > td:nth-child(7) { grid-area: 1/3; align-items: flex-end; text-align: right; }
+  #ledger-body > tr > td:nth-child(8) { grid-area: 3/3; align-items: flex-end; text-align: right; }
+  #ledger-body > tr > td:nth-child(7) .cell-value,#ledger-body > tr > td:nth-child(8) .cell-value { text-align: right; }
 }
