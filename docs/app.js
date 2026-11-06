@@ -628,20 +628,23 @@ function viewLog(main, m, p) {
   if (pages > 1) main.append(h('div', { class: 'pager' }, h('button', { class: 'btn btn-sm', disabled: page === 0, onclick: () => setParam('page', page - 1) }, '← Prev'), h('span', {}, `${page + 1} / ${pages}`), h('button', { class: 'btn btn-sm', disabled: page >= pages - 1, onclick: () => setParam('page', page + 1) }, 'Next →')));
 }
 
+function reviewCounts(m) {
+  return {pending:m.flagged.filter(r=>!r.decided && r.status !== 'excluded').length, reviewed:m.decidedCount};
+}
 function viewExport(main, m) {
-  const checks=currentChecks(),bad=checks.items.filter(c=>!c.ok).length,rec=m.reconciliation,flagged=m.records.filter(r=>r.reasons.length).length;
+  const checks=currentChecks(),bad=checks.items.filter(c=>!c.ok).length,rec=m.reconciliation,review=reviewCounts(m);
   const stamp=new Date().toISOString().slice(0,10),base=S.source.kind==='sample'?`seed${S.source.seed}`:(S.source.name||'file').replace(/\.[^.]+$/,'');
   main.append(h('div',{class:'page-head'},h('h1',{},'Export')));
   main.append(h('div',{class:'grid-2'},
     h('section',{class:'card'},h('h2',{},'Cleaned bills workbook'),
-      h('p',{class:'hint'},`An Excel workbook with five sheets: Summary, Bills (${m.bills.length}), Needs review (${flagged}; ${m.decidedCount} decided), Duplicates (${m.dups.length}) and Change log (${(m.changes.length+m.userChanges.length).toLocaleString('en-CA')}).`),
+      h('p',{class:'hint'},`An Excel workbook with five sheets: Summary, Bills (${m.bills.length}), Needs review (${review.pending} pending, ${review.reviewed} reviewed), Duplicates (${m.dups.length}) and Change log (${(m.changes.length+m.userChanges.length).toLocaleString('en-CA')}).`),
       h('p',{class:'hint',style:'margin-top:12px'},'The same bills, rules and review decisions produce the same file contents. Your workbook is created in this browser.'),
       h('div',{class:'toolbar',style:'margin-top:16px'},h('button',{class:'btn btn-primary',onclick:async e=>{e.target.textContent='Building…';download(`cleaned-bills-${base}-${stamp}.xlsx`,await exportWorkbook(),'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');e.target.textContent='Download cleaned workbook';}},'Download cleaned workbook'),bad?h('span',{class:'hint'},`${bad} checks need attention before you download.`):null)),
     h('section',{class:'card'},h('h2',{},'Totals and checks'),
-      h('dl',{class:'export-totals'},
-        h('div',{},h('dt',{},`All ${m.records.length} input rows · CAD ${money(rec.known_input_cents)} known`),h('dd',{},`Includes kept bills, duplicates, unreadable rows and any review exclusions. ${rec.unknown_amount_rows} input rows have no readable amount and do not add to this total.`)),
-        h('div',{},h('dt',{},`${m.bills.length} kept bills · CAD ${money(rec.cents.clean)}`),h('dd',{},'This is the Dashboard total. It leaves out duplicates, unreadable rows and review exclusions.'))),
-      h('ul',{class:'checks'},checks.items.map(c=>h('li',{class:c.ok?'ok':'bad'},h('span',{},c.name,'. ',h('span',{class:'faint'},c.detail))))),
+      h('div',{class:'export-totals'},
+        h('details',{},h('summary',{},h('strong',{},'All ' + m.records.length + ' input rows · CAD ' + money(rec.known_input_cents) + ' known')),h('p',{},'Includes kept bills, duplicates, unreadable rows and any review exclusions. ' + rec.unknown_amount_rows + ' input rows have no readable amount and do not add to this total.')),
+        h('details',{},h('summary',{},h('strong',{},m.bills.length + ' kept bills · CAD ' + money(rec.cents.clean))),h('p',{},'This is the Dashboard total. It leaves out duplicates, unreadable rows and review exclusions.'))),
+      h('ul',{class:'checks'},checks.items.map(c=>h('li',{class:c.ok?'ok':'bad'},h('details',{class:'export-check'},h('summary',{},h('strong',{},c.name)),h('p',{class:'faint'},c.detail))))),
       h('div',{class:'toolbar',style:'margin-top:12px'},h('button',{class:'btn',onclick:()=>{runChecks();render();}},'Run checks again'),h('span',{class:'hint'},'Current state: ' + checks.reviewChanges + ' review changes · ' + checks.ruleCount + ' category rules · checked ' + checks.at.slice(11, 19) + ' UTC')),
       h('details',{class:'technical-check'},h('summary',{},'Compare the sample with the command-line version'),h('p',{class:'hint'},'This optional check applies to the supplied sample without review decisions or added rules. Save the original sample workbook, cleaned workbook and audit record in one folder, then run:'),h('code',{},'python3 -B demo.py check --out <folder> --no-repeat')))));
   main.append(h('div',{class:'export-downloads'},
@@ -659,8 +662,8 @@ const icon = k => h('span', { class: 'ico', 'aria-hidden': 'true', html: `<svg v
 const NAV = [['', 'Import'], ['overview', 'Overview'], ['bills', 'Bills'], ['review', 'Needs review'], ['duplicates', 'Duplicates'], ['rules', 'Rules'], ['log', 'Change log'], ['dashboard', 'Dashboard'], ['export', 'Export']];
 function renderNav(view, m) {
   const nav = $('#nav'); nav.innerHTML = '';
-  const counts = m ? { bills: m.bills.length, review: m.records.filter(r => r.reasons.length).length - m.decidedCount, duplicates: m.dups.length, rules: E.MERCHANTS.length + S.rules.aliases.length, log: m.changes.length + m.userChanges.length } : {};
-  for (const [v, label] of NAV) { if (!m && v) continue; nav.append(h('a', { href: '#/' + v, 'aria-current': view === v ? 'page' : null, title: label, onclick: () => { nav.classList.remove('open'); } }, icon(v), h('span', {}, v === '' && m ? 'Import another' : label), counts[v] !== undefined ? h('span', { class: 'cnt' }, counts[v].toLocaleString()) : null)); }
+  const counts = m ? { bills: m.bills.length, review: reviewCounts(m).pending, duplicates: m.dups.length, rules: E.MERCHANTS.length + S.rules.aliases.length, log: m.changes.length + m.userChanges.length } : {};
+  for (const [v, label] of NAV) { if ((!m && v) || (m && v === '')) continue; nav.append(h('a', { href: '#/' + v, 'aria-current': view === v ? 'page' : null, title: label, onclick: () => { nav.classList.remove('open'); } }, icon(v), h('span', {}, v === '' && m ? 'Import another' : label), counts[v] !== undefined ? h('span', { class: 'cnt' }, counts[v].toLocaleString() + (v === 'review' ? ' pending' : '')) : null)); }
   if (m) nav.append(h('button', { class: 'btn btn-ghost btn-sm collapse', onclick: () => { S.ui.navCollapsed = !S.ui.navCollapsed; persist(); render(); }, 'aria-label': S.ui.navCollapsed ? 'Expand navigation' : 'Collapse navigation', title: S.ui.navCollapsed ? 'Expand navigation' : 'Collapse navigation' }, h('span', { class: 'ico', 'aria-hidden': 'true' }, S.ui.navCollapsed ? '»' : '«'), h('span', {}, S.ui.navCollapsed ? '' : 'collapse')));
 }
 // Every render replaces the page's elements, so the control a keyboard user was on disappears and focus drops to <body>:

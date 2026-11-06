@@ -548,3 +548,9 @@ html[data-suite-scale="fluid"] { font-size: var(--suite-screen-unit); }
   header .file-actions { order:3; flex-shrink:0; }
   header #workbook-info { order:4; margin-left:auto; }
 }
+
+#legacy-workspace .feature-toolbar:not(:has(> #primary-action:not([hidden]))) { display:none; }
+#legacy-workspace .export-totals > details { padding:calc(12 * var(--suite-px, 1px)); background:var(--soft); }
+#legacy-workspace .export-totals summary,#legacy-workspace .export-check summary { cursor:pointer; font-size:calc(14 * var(--suite-px, 1px)); }
+#legacy-workspace .export-totals p,#legacy-workspace .export-check p { margin-top:calc(8 * var(--suite-px, 1px)); font-size:calc(14 * var(--suite-px, 1px)); }
+#legacy-workspace .export-check { width:100%; }

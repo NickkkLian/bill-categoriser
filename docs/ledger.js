@@ -51,13 +51,17 @@ function render() {
   $('#review-first').disabled = !firstProblem;
   if (firstProblem) {
     const reason = firstProblem.reasons.includes('missing date') ? 'Missing date' : readableReason(firstProblem.reasons[0]);
-    const detail = document.createElement('span');
-    detail.textContent = reason;
-    $('#review-first').replaceChildren(document.createTextNode('Review ledger row ' + (firstProblemIndex + 1) + ' '), detail);
-    $('#review-first').dataset.actionName = reason === 'Missing date' ? `Review row ${firstProblemIndex + 1} for a missing date` : `Review row ${firstProblemIndex + 1}`;
-    document.querySelector('.review-toolbar p').textContent = 'Source: ' + firstProblem.source_sheet + ', row ' + firstProblem.source_row + '.';
+    const title=document.createElement('span');
+    title.textContent='Review ledger row ' + (firstProblemIndex + 1) + ' · ' + reason;
+    const source=document.createElement('small');
+    source.className='next-review-source'; source.textContent=firstProblem.source_sheet + ' · source row ' + firstProblem.source_row;
+    $('#review-first').replaceChildren(title,source);
+    $('#review-first').dataset.actionName=title.textContent + ', ' + source.textContent;
+    document.querySelector('.review-toolbar p').textContent='';
+    document.querySelector('.review-toolbar p').hidden=true;
   } else {
     $('#review-first').textContent = 'Review complete';
+    document.querySelector('.review-toolbar p').hidden=false;
     document.querySelector('.review-toolbar p').textContent = 'All flagged rows have a review decision.';
   }
   $('#ledger-body').replaceChildren();
@@ -131,34 +135,38 @@ function review(record) {
   row?.scrollIntoView({ block: 'nearest' });
   $('#review-source').textContent = 'Source: ' + record.source_file + ' · ' + record.source_sheet + ', row ' + record.source_row;
   $('#source-comparison').replaceChildren();
+  const dateIssue=record.reasons.includes('missing date') ? 'Needs a date' : record.reasons.some(r=>r==='invalid date'||r.startsWith('ambiguous date')) ? 'Check date' : '';
+  const amountIssue=record.reasons.includes('missing amount') ? 'Needs an amount' : record.reasons.some(r=>r.startsWith('invalid amount')) ? 'Check amount' : record.reasons.some(r=>r.startsWith('high amount')) ? 'Check large amount' : '';
   const fields = [
-    ['Invoice', record.raw[0], record.invoice],
-    ['Merchant', record.raw[1], record.merchant],
-    ['Date', record.raw[2], record.date || 'Missing'],
-    ['Amount, CAD', record.raw[3], money(record.cents)],
-    ['Category', 'Not in source', record.category]
+    ['Invoice', record.raw[0], record.invoice, ''],
+    ['Merchant', record.raw[1], record.merchant, record.reasons.includes('missing merchant')?'Needs a merchant':''],
+    ['Date', record.raw[2], record.date || 'Missing', dateIssue],
+    ['Amount, CAD', record.raw[3], money(record.cents), amountIssue],
+    ['Category', 'Not in source', record.category, record.reasons.includes('unmapped merchant')?'Needs a category':'']
   ];
-  for (const [label, raw, reviewed] of fields) {
+  for (const [label, raw, reviewed, issue] of fields) {
     const original = raw === null || raw === undefined || String(raw).trim() === '' ? 'Missing' : String(raw);
-    const tr=document.createElement('tr');
+    const tr=document.createElement('tr'); tr.dataset.field=label;
     const heading=document.createElement('th'); heading.scope='row'; heading.textContent=label; tr.append(heading);
     const source=document.createElement('td'); source.textContent=original; tr.append(source);
     const value=document.createElement('td');
-    if (original !== String(reviewed)) {
-      const mark=document.createElement('mark'); mark.textContent=reviewed; value.append(mark); value.className='changed';
+    if (issue) {
+      tr.className='problem-field';
+      const mark=document.createElement('strong'); mark.textContent=reviewed;
+      const hint=document.createElement('small'); hint.textContent=issue;
+      value.append(mark,hint);
+    } else if (original !== String(reviewed)) {
+      const mark=document.createElement('span'); mark.className='normalised-value'; mark.textContent=reviewed;
+      value.append(mark); value.className='changed';
     } else value.textContent=reviewed;
     tr.append(value); $('#source-comparison').append(tr);
   }
-  $('#review-reasons').textContent = record.reasons.length ? record.reasons.map(readableReason).join(' · ') : 'No review flags remain.';
-  $('#review-export-note').textContent = record.excluded
-    ? 'Excluded from Bills. The source row and known amount stay in Needs review and the control total.'
-    : record.status === 'unparseable'
-      ? 'This row stays outside Bills. Confirming review keeps it in Needs review with its original cells; a missing amount stays unknown.'
-      : record.status === 'duplicate'
-        ? 'This row stays in Duplicates and Needs review, outside Bills. Its source and known amount are preserved.'
-        : 'This row is in Bills. Confirming review keeps the original flags and source cells in Needs review. Excluding it preserves its known amount in the control total.';
-  const disposition = {confirm:'Confirmed as is',exclude:'Excluded from Bills',duplicate:'Marked as a duplicate'};
-  $('#review-completion').textContent = record.decided ? 'Review complete: ' + disposition[record.decided] + '. You can undo this decision.' : 'A category edit saves the category. Confirm review separately when you have considered every reason.';
+  const reasons=record.reasons.filter(reason=>!reason.endsWith('by reviewer')).sort((a,b)=>(a==='missing date'?-1:b==='missing date'?1:0)).map(readableReason);
+  const reasonText=reasons.length ? reasons.map((reason,index)=>index ? reason[0].toLowerCase()+reason.slice(1) : reason).join(' and ') : record.category !== 'Uncategorised' ? 'Category edited' : 'No outstanding flags';
+  const destination=record.status === 'clean' ? 'in Bills' : 'out of Bills';
+  $('#review-reasons').textContent=record.decided
+    ? reasonText + ': reviewed; this row stays ' + destination + ' with its original cells.'
+    : reasonText + ': confirm to keep this row ' + destination + ' with its original cells.';
   const id=record.id;
   window.BillBench.mountReviewActions($('#shared-review-actions'),id,{
     refresh: () => { window.BillBench.render(); review(records.find(item=>item.id===id)); $('#shared-review-actions button')?.focus({preventScroll:true}); },
