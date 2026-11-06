@@ -538,3 +538,13 @@ html[data-suite-scale="fluid"] { font-size: var(--suite-screen-unit); }
  body { max-width: calc(1215 * var(--suite-px)); margin-inline:auto; }
  h1 { font-size: calc(34.194 * var(--suite-px)); }
 }
+
+/* Direct file actions share a second toolbar row on phones. */
+@media(max-width:700px) {
+  header { flex-wrap:wrap; }
+  header .brand { order:0; }
+  header .file-chip { order:1; flex:1 1 180px; min-width:0; }
+  header .theme-toggle { order:2; margin-left:0; }
+  header .file-actions { order:3; flex-shrink:0; }
+  header #workbook-info { order:4; margin-left:auto; }
+}

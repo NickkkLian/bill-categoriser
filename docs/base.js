@@ -200,7 +200,7 @@
     update();
   });
 
-  window.ui.enhanceTables = scope => scope.querySelectorAll('table').forEach(table => {
+  window.ui.enhanceTables = scope => scope.querySelectorAll('table:not([data-static])').forEach(table => {
     if (!table.tHead) return;
     table.classList.add('record-table');
     const labels = [...table.tHead.rows[0].cells].map(cell => cell.textContent.trim());
@@ -223,7 +223,7 @@
   });
   window.ui.enhanceTables(document);
 
-  document.querySelectorAll('table').forEach(table => {
+  document.querySelectorAll('table:not([data-static])').forEach(table => {
     table.querySelectorAll('th').forEach((head, column) => {
       const button = document.createElement('button');
       button.type = 'button';

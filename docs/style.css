@@ -82,3 +82,31 @@ h1 { font-size: clamp(calc(32 * var(--suite-px, 1px)),2.78vw,calc(40 * var(--sui
 @media(max-width:900px) { .ledger-tools { width: 100%; } .ledger-tools input { flex: 1; } .tieout { gap: calc(12 * var(--suite-px, 1px)); } .tieout > div { padding: calc(16 * var(--suite-px, 1px)); } }
 @media(max-width:700px) { header { padding: calc(12 * var(--suite-px, 1px)) calc(16 * var(--suite-px, 1px)); gap: calc(12 * var(--suite-px, 1px)); flex-wrap: wrap; } header .badge,#workbook-info { display: none; } .file-chip { font-size: calc(14 * var(--suite-px, 1px)); padding: calc(8 * var(--suite-px, 1px)) calc(12 * var(--suite-px, 1px)); } .theme-toggle { margin-left: auto; width: calc(32 * var(--suite-px, 1px)); } main { padding: calc(20 * var(--suite-px, 1px)) calc(16 * var(--suite-px, 1px)); } .reconcile-heading { flex-wrap: wrap; gap: calc(12 * var(--suite-px, 1px)); } .tieout { grid-template-columns: 1fr 1fr; margin-top: calc(16 * var(--suite-px, 1px)); gap: calc(8 * var(--suite-px, 1px)); } .tieout > div { padding: calc(12 * var(--suite-px, 1px)); } .tieout strong { font-size: calc(24 * var(--suite-px, 1px)); } .tieout p { font-size: calc(12 * var(--suite-px, 1px)); } .review-toolbar { padding: calc(16 * var(--suite-px, 1px)) 0; flex-wrap: wrap; gap: calc(12 * var(--suite-px, 1px)); } .review-toolbar button { width: 100%; } .ledger-top { padding: calc(12 * var(--suite-px, 1px)); gap: calc(12 * var(--suite-px, 1px)); } .workbook-sheets button { font-size: calc(12 * var(--suite-px, 1px)); padding: 0 calc(8 * var(--suite-px, 1px)); } .ledger-tools { gap: calc(8 * var(--suite-px, 1px)); flex-wrap: wrap; } .ledger-tools input { width: 100%; flex-basis: 100%; } .ledger-tools .combo { flex: 1; } .ledger table { min-width: calc(1000 * var(--suite-px, 1px)); } .source-preview { display: block; } #bill-thumbnail { max-width: calc(280 * var(--suite-px, 1px)); margin: 0 auto calc(24 * var(--suite-px, 1px)); } #review-dialog { padding: calc(20 * var(--suite-px, 1px)); } .category-field { display: block; } .category-field .combo { display: block; margin-top: calc(8 * var(--suite-px, 1px)); } }
 @media(max-width:700px) { .tieout:has(#excluded-tile:not([hidden])) { grid-template-columns: repeat(2,1fr); } }
+
+.file-actions { display:flex; gap:calc(8 * var(--suite-px, 1px)); margin-left:auto; }
+#workbook-info { margin-left:0; }
+.comparison-wrap { margin-top:calc(20 * var(--suite-px, 1px)); }
+.source-comparison { table-layout:fixed; }
+.source-comparison caption { text-align:left; font-weight:700; margin-bottom:calc(8 * var(--suite-px, 1px)); }
+.source-comparison caption span { display:block; font-weight:400; font-size:calc(12 * var(--suite-px, 1px)); color:var(--muted); }
+.source-comparison th,.source-comparison td { white-space:normal; overflow-wrap:anywhere; vertical-align:top; height:auto; padding:calc(8 * var(--suite-px, 1px)); }
+.source-comparison th { position:static; }
+.source-comparison th:first-child { width:24%; }
+.source-comparison tbody th { color:var(--muted); font-weight:400; }
+.source-comparison mark { color:var(--text); background:var(--warning-soft); padding:calc(2 * var(--suite-px, 1px)); border-radius:calc(3 * var(--suite-px, 1px)); }
+.review-disposition { margin-top:calc(16 * var(--suite-px, 1px)); padding:calc(12 * var(--suite-px, 1px)); background:var(--soft); }
+.review-disposition p { font-size:calc(14 * var(--suite-px, 1px)); margin-top:calc(8 * var(--suite-px, 1px)); }
+#review-reasons { margin:0; color:var(--warning); font-size:calc(16 * var(--suite-px, 1px)); }
+#shared-review-actions .insp-foot { padding:calc(16 * var(--suite-px, 1px)) 0 0; border:0; background:transparent; }
+#shared-review-actions .keys { display:none; }
+#review-dialog .dialog-title { align-items:start; }
+#review-dialog h2 { font-size:calc(24 * var(--suite-px, 1px)); }
+#review-source { font-size:calc(14 * var(--suite-px, 1px)); overflow-wrap:anywhere; }
+@media(max-width:700px) {
+  .file-actions { margin-left:0; }
+  .file-actions .button { height:32px; padding-inline:12px; }
+  .source-comparison { font-size:12px; }
+  .source-comparison th,.source-comparison td { padding:8px 4px; }
+  #shared-review-actions .rule-edit { flex-wrap:wrap; }
+  #shared-review-actions .check { white-space:normal; }
+}

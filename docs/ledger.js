@@ -5,7 +5,7 @@ let records = [];
 function syncRecords() {
   const model = window.BillBench.model();
   records = model.records.map(record => ({ ...record,
-      raw: [...record.raw], reasons: record.reasons.filter(reason => !record.decided || record.decided === 'category' || reason !== 'unmapped merchant'),
+      raw: [...record.raw], reasons: [...record.reasons],
       excluded: record.status === 'excluded' }));
 }
 let sheet = 'all';
@@ -37,6 +37,7 @@ function readableReason(reason) {
   if (reason.startsWith('possible duplicate')) return 'Possible duplicate';
   if (reason.startsWith('ambiguous date')) return 'Date order unclear';
   if (reason.startsWith('invalid amount')) return 'Cannot read amount';
+  if (reason === 'category edited by reviewer') return 'Category edited';
   return reason[0].toUpperCase() + reason.slice(1);
 }
 function render() {
@@ -52,9 +53,9 @@ function render() {
     const reason = firstProblem.reasons.includes('missing date') ? 'Missing date' : readableReason(firstProblem.reasons[0]);
     const detail = document.createElement('span');
     detail.textContent = reason;
-    $('#review-first').replaceChildren(document.createTextNode(`Review row ${firstProblemIndex + 1} `), detail);
+    $('#review-first').replaceChildren(document.createTextNode('Review ledger row ' + (firstProblemIndex + 1) + ' '), detail);
     $('#review-first').dataset.actionName = reason === 'Missing date' ? `Review row ${firstProblemIndex + 1} for a missing date` : `Review row ${firstProblemIndex + 1}`;
-    document.querySelector('.review-toolbar p').textContent = `The next problem is in row ${firstProblemIndex + 1}.`;
+    document.querySelector('.review-toolbar p').textContent = 'Source: ' + firstProblem.source_sheet + ', row ' + firstProblem.source_row + '.';
   } else {
     $('#review-first').textContent = 'Review complete';
     document.querySelector('.review-toolbar p').textContent = 'All flagged rows have a review decision.';
@@ -123,45 +124,48 @@ function render() {
 function review(record) {
   selected = record;
   const rowNumber = records.indexOf(record) + 1;
-  $('#review-title').textContent = `Review row ${rowNumber}`;
+  $('#review-title').textContent = 'Review ledger row ' + rowNumber;
   document.querySelectorAll('.selected-row').forEach(row => row.classList.remove('selected-row'));
   const row = [...document.querySelectorAll('#ledger-body tr')].find(row => row.dataset.id === record.id);
   row?.classList.add('selected-row');
   row?.scrollIntoView({ block: 'nearest' });
-  $('#review-source').textContent = `${record.source_file}, ${record.source_sheet}, row ${record.source_row}`;
-  $('#original-values').replaceChildren();
-  record.headers.forEach((name, index) => {
-    const row = document.createElement('div');
-    const label = document.createElement('span');
-    const value = document.createElement('span');
-    label.textContent = name;
-    const original = record.raw[index];
-    value.textContent = original === null || original === undefined || String(original).trim() === ''
-      ? /date|billed on/i.test(name) ? 'Missing' : 'Empty in source file'
-      : original;
-    row.append(label, value);
-    $('#original-values').append(row);
-  });
-  $('#review-reasons').textContent = record.reasons.length ? record.reasons.map(readableReason).join('. ') : 'This row has no review flags.';
-  $('#set-category').value = record.category;
-  $('#exclude').disabled = record.status !== 'clean' || record.excluded;
-  const exclusionReason=record.excluded?'This row has already been excluded.':record.status==='duplicate'?'This row is already outside kept rows because it is a duplicate.':record.status!=='clean'?'This row is already outside kept rows because its date or amount is unreadable.':'';
-  $('#exclude-reason').textContent=exclusionReason;
-  $('#exclude-reason').hidden=!exclusionReason;
-  $('#undo-review').hidden = !record.decided;
-  $('#set-category').dispatchEvent(new Event('ui-sync'));
-  const title=document.createElement('h4');title.textContent='Source row preview';
-  const fields=document.createElement('dl');fields.className='preview-fields';
-  for(const [name,text] of [['Merchant',record.merchant],['Invoice',record.invoice||'Missing'],['Date',record.date||'Missing'],['Source',`${record.source_sheet} · row ${record.source_row}`],['Amount',`CAD ${money(record.cents)}`]]){
-    const label=document.createElement('dt');label.textContent=name;
-    const value=document.createElement('dd');value.textContent=text;
-    fields.append(label,value);
+  $('#review-source').textContent = 'Source: ' + record.source_file + ' · ' + record.source_sheet + ', row ' + record.source_row;
+  $('#source-comparison').replaceChildren();
+  const fields = [
+    ['Invoice', record.raw[0], record.invoice],
+    ['Merchant', record.raw[1], record.merchant],
+    ['Date', record.raw[2], record.date || 'Missing'],
+    ['Amount, CAD', record.raw[3], money(record.cents)],
+    ['Category', 'Not in source', record.category]
+  ];
+  for (const [label, raw, reviewed] of fields) {
+    const original = raw === null || raw === undefined || String(raw).trim() === '' ? 'Missing' : String(raw);
+    const tr=document.createElement('tr');
+    const heading=document.createElement('th'); heading.scope='row'; heading.textContent=label; tr.append(heading);
+    const source=document.createElement('td'); source.textContent=original; tr.append(source);
+    const value=document.createElement('td');
+    if (original !== String(reviewed)) {
+      const mark=document.createElement('mark'); mark.textContent=reviewed; value.append(mark); value.className='changed';
+    } else value.textContent=reviewed;
+    tr.append(value); $('#source-comparison').append(tr);
   }
-  const caption=document.createElement('figcaption');
-  caption.textContent='Generated from this source row and its reviewed fields';
-  $('#bill-thumbnail').replaceChildren(title,fields,caption);
-  $('#full-review').href = `#/review?i=${encodeURIComponent(record.id)}`;
-  $('#review-dialog').showModal();
+  $('#review-reasons').textContent = record.reasons.length ? record.reasons.map(readableReason).join(' · ') : 'No review flags remain.';
+  $('#review-export-note').textContent = record.excluded
+    ? 'Excluded from Bills. The source row and known amount stay in Needs review and the control total.'
+    : record.status === 'unparseable'
+      ? 'This row stays outside Bills. Confirming review keeps it in Needs review with its original cells; a missing amount stays unknown.'
+      : record.status === 'duplicate'
+        ? 'This row stays in Duplicates and Needs review, outside Bills. Its source and known amount are preserved.'
+        : 'This row is in Bills. Confirming review keeps the original flags and source cells in Needs review. Excluding it preserves its known amount in the control total.';
+  const disposition = {confirm:'Confirmed as is',exclude:'Excluded from Bills',duplicate:'Marked as a duplicate'};
+  $('#review-completion').textContent = record.decided ? 'Review complete: ' + disposition[record.decided] + '. You can undo this decision.' : 'A category edit saves the category. Confirm review separately when you have considered every reason.';
+  const id=record.id;
+  window.BillBench.mountReviewActions($('#shared-review-actions'),id,{
+    refresh: () => { window.BillBench.render(); review(records.find(item=>item.id===id)); $('#shared-review-actions button')?.focus({preventScroll:true}); },
+    complete: () => { $('#review-dialog').close(); window.BillBench.render(); }
+  });
+  $('#full-review').href = '#/review?i=' + encodeURIComponent(record.id);
+  if (!$('#review-dialog').open) $('#review-dialog').showModal();
 }
 $('#review-first').addEventListener('click', () => {
   const first = records.find(record => record.reasons.length && !record.excluded && !record.decided);
@@ -170,21 +174,6 @@ $('#review-first').addEventListener('click', () => {
   $('#reason').value = 'all';
   document.querySelector('[data-sheet="all"]').click();
   review(first);
-});
-$('#apply-category').addEventListener('click', () => {
-  window.BillBench.decide(selected.id, 'category', { after: $('#set-category').value });
-  selected.category = $('#set-category').value;
-  selected.reasons = selected.reasons.filter(reason => reason !== 'unmapped merchant');
-  if (selected.category === 'Uncategorised') selected.reasons.unshift('unmapped merchant');
-  $('#ledger-status').textContent = `Category for ${selected.invoice} set to ${selected.category} in this workbook. ${selected.reasons.length ? selected.reasons.map(readableReason).join('. ') + '.' : 'No review flags remain.'}`;
-  $('#review-dialog').close();
-  window.BillBench.render();
-});
-$('#exclude').addEventListener('click',()=>{
-  window.BillBench.decide(selected.id, 'exclude');
-  $('#ledger-status').textContent=`${selected.invoice} excluded from kept rows. The original source cells remain available.`;
-  $('#review-dialog').close();
-  window.BillBench.render();
 });
 $('#workbook-info').addEventListener('click',()=>$('#workbook-dialog').showModal());
 $('#find').addEventListener('input', render);
@@ -224,11 +213,5 @@ function updateWorkspace() {
 window.addEventListener('bill-render', updateWorkspace);
 $('#workbook-tools').addEventListener('click', event => { if (event.target.closest('a')) $('#workbook-dialog').close(); });
 $('#full-review').addEventListener('click', () => $('#review-dialog').close());
-$('#undo-review').addEventListener('click', () => {
-  const decision = window.BillBench.state.decisions.filter(item => item.rowId === selected.id && !item.undoneBy && item.action !== 'undo').at(-1);
-  if (decision) window.BillBench.undoDecision(decision.id);
-  $('#review-dialog').close();
-  window.BillBench.render();
-});
 
 })();

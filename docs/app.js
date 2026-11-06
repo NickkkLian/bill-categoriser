@@ -70,7 +70,8 @@ const S = { source: null, rows: null, rules: { aliases: [], threshold: E.DEFAULT
   ui: { autoAdvance: true, sort: 'source', navCollapsed: false, inspectorOpen: false, seenStart: false, page: 0 }, apiKey: null,
   llm: { provider: 'anthropic', model: 'claude-sonnet-5-5', baseUrl: '' } };
 let cache = null, saveTimer = null;
-const invalidate = () => { cache = null; };
+let stateRevision = 0;
+const invalidate = () => { cache = null; S.checks = null; stateRevision++; };
 const persist = () => { clearTimeout(saveTimer); saveTimer = setTimeout(() => DB.set('state', { source: S.source, rows: S.rows, rules: S.rules, decisions: S.decisions, ui: { autoAdvance: S.ui.autoAdvance, sort: S.ui.sort, navCollapsed: S.ui.navCollapsed, seenStart: S.ui.seenStart }, savedAt: nowIso() }), 150); };
 const extraRules = () => { const aliases = {}, categories = {}; for (const r of S.rules.aliases) { aliases[r.alias.toLowerCase().replace(/[^a-z0-9]/g, '')] = r.alias.trim(); categories[r.alias.trim()] = r.category; } return { aliases, categories }; };
 const uid = () => Math.random().toString(36).slice(2, 10);
@@ -86,8 +87,11 @@ function buildModel(rules = S.rules, decisions = S.decisions) {
     if (d.undoneBy) continue;
     if (d.action === 'undo') { userChanges.push({ id: d.rowId, field: 'decision', before: d.before, after: 'undone', rule: 'reviewer undo', who: 'you', at: d.at, did: d.id }); continue; }
     const r = byId[d.rowId]; if (!r) continue;
-    r.decided = d.action; r.decidedAt = d.at;
-    if (d.action === 'category') { userChanges.push({ id: r.id, field: 'category', before: r.category, after: d.after, rule: d.rule || 'manual review', who: 'you', at: d.at, did: d.id }); r.category = d.after; r.reasons = r.reasons.filter(x => x !== 'unmapped merchant'); }
+    if (d.action !== 'category') { r.decided = d.action; r.decidedAt = d.at; }
+    if (d.action === 'category') { userChanges.push({ id: r.id, field: 'category', before: r.category, after: d.after, rule: d.rule || 'manual review', who: 'you', at: d.at, did: d.id }); r.category = d.after; r.decided = null; r.decidedAt = null;
+      r.reasons = r.reasons.filter(x => x !== 'unmapped merchant');
+      if (r.category === 'Uncategorised') r.reasons.push('unmapped merchant');
+      if (!r.reasons.length) r.reasons.push('category edited by reviewer'); }
     else if (d.action === 'duplicate') { userChanges.push({ id: r.id, field: 'disposition', before: r.status, after: 'duplicate', rule: 'marked duplicate by reviewer', who: 'you', at: d.at, did: d.id }); r.status = 'duplicate'; r.duplicate_of = d.after; r.reasons.push('marked duplicate of ' + d.after + ' by reviewer'); }
     else if (d.action === 'exclude') { userChanges.push({ id: r.id, field: 'disposition', before: r.status, after: 'excluded', rule: 'excluded by reviewer', who: 'you', at: d.at, did: d.id }); r.status = 'excluded'; r.reasons.push('excluded by reviewer'); }
     else if (d.action === 'confirm') { userChanges.push({ id: r.id, field: 'review', before: 'flagged', after: 'confirmed as is', rule: 'reviewer confirmation', who: 'you', at: d.at, did: d.id }); }
@@ -115,11 +119,13 @@ function runChecks() {
   const review = m.records.filter(r => r.reasons.length).length;
   items.push(['The review sheet includes every flagged row', review === E.workbookTables(exportModel())['Needs review'].length, `${review} flagged`]);
   items.push(['The change log includes every edit', m.changes.length === m.base.changes.length && m.userChanges.length === S.decisions.filter(d => !d.undoneBy).length, `${m.changes.length.toLocaleString('en-CA')} automatic cleanup changes and ${m.userChanges.length.toLocaleString('en-CA')} review changes`]);
-  const a = E.pyJson(E.clean(S.rows, S.rules.threshold, extraRules())), b = E.pyJson(E.clean(S.rows, S.rules.threshold, extraRules()));
+  const a = E.pyJson(exportTables()), b = E.pyJson(exportTables());
   items.push(['Exporting twice gives the same contents', a === b, `Both copies contain ${a.length.toLocaleString('en-CA')} characters`]);
-  S.checks = { at: nowIso(), items: items.map(([name, ok, detail]) => ({ name, ok: !!ok, detail })) };
+  S.checks = { at: nowIso(), stateRevision, reviewChanges: m.userChanges.length, ruleCount: S.rules.aliases.length, items: items.map(([name, ok, detail]) => ({ name, ok: !!ok, detail })) };
   return S.checks;
 }
+
+const currentChecks = () => S.checks?.stateRevision === stateRevision ? S.checks : runChecks();
 
 /* ---------- export ---------- */
 function exportModel() {
@@ -305,31 +311,43 @@ function renderInspector(m, r, ctx) {
   const hist = S.decisions.filter(d => d.rowId === r.id);
   if (hist.length) body.append(h('section', {}, h('h3', {}, 'History'), h('ul', { class: 'checks' }, hist.map(d => h('li', { class: d.undoneBy ? 'na' : 'ok' }, h('span', { class: 'mono' }, hhmm(d.at)), h('span', {}, d.action === 'undo' ? `undid ${d.before}` : d.action + (d.after ? ' → ' + d.after : '') + (d.undoneBy ? ' (undone)' : '')))))));
   box.append(body);
-  if (!r.decided && r.status !== 'excluded' && ctx?.actions !== false) box.append(reviewActions(r, m, ctx));
-  else if (r.decided) box.append(h('div', { class: 'insp-foot' }, h('button', { class: 'btn', onclick: () => { const d = S.decisions.filter(x => x.rowId === r.id && !x.undoneBy && x.action !== 'undo').pop(); if (d) { undoDecision(d.id); toast('Decision undone'); render(); } } }, 'Undo decision')));
+  if (ctx?.actions !== false) box.append(reviewControls(r, m, ctx));
+}
+function reviewControls(r, m, ctx) {
+  const d = S.decisions.filter(x => x.rowId === r.id && !x.undoneBy && x.action !== 'undo').pop();
+  const undo = label => h('button', { class: 'btn', onclick: () => {
+    if (d) { undoDecision(d.id); toast('Review undone'); if (ctx?.refresh) ctx.refresh(); else render(); }
+  } }, label);
+  if (!r.decided && r.status !== 'excluded') {
+    const foot = reviewActions(r, m, ctx);
+    if (d?.action === 'category') foot.append(undo('Undo category edit'));
+    return foot;
+  }
+  return h('div', { class: 'insp-foot' }, undo('Undo review'));
 }
 function applyCategory(r, category, addRule, rule, ctx) {
   const m = M(); let ruleId = null, affected = 0;
   if (addRule) { ruleId = uid(); affected = rowsMatchingAlias(r.merchant); S.rules.aliases.push({ id: ruleId, alias: r.merchant, category, who: 'you', at: nowIso() }); }
   const d = decide(r.id, 'category', { before: r.category, after: category, rule: rule || 'manual review', ruleAdded: ruleId });
-  toast(`Category set to ${category}` + (addRule ? ` · rule added, ${plural(affected, 'row')} affected` : ''), { undo: () => { undoDecision(d.id); render(); } });
-  afterDecision(ctx, r);
+  toast(`Category set to ${category}` + (addRule ? ` · rule added, ${plural(affected, 'row')} affected` : ''), { undo: () => { undoDecision(d.id); if (ctx?.refresh) ctx.refresh(); else render(); } });
+  if (ctx?.refresh) ctx.refresh(); else render();
 }
 function afterDecision(ctx, r) {
+  if (ctx?.complete) { ctx.complete(); return; }
   if (ctx?.queue && S.ui.autoAdvance) { const next = ctx.queue.slice(ctx.queue.indexOf(r) + 1).find(x => !x.decided) || ctx.queue.find(x => !x.decided && x !== r); setParam('i', next ? next.id : null); }
   else render();
 }
 function reviewActions(r, m, ctx) {
   const foot = h('div', { class: 'insp-foot' });
-  const sel = h('select', { 'aria-label': 'Category' }, CATEGORIES.map(c => h('option', { value: c, selected: c === r.category && r.category !== 'Uncategorised' }, c)));
+  const sel = h('select', { 'aria-label': 'Category' }, [...CATEGORIES, 'Uncategorised'].map(c => h('option', { value: c, selected: c === r.category }, c)));
   const addRule = h('input', { type: 'checkbox', id: 'add-rule' });
-  const catBox = h('div', { class: 'field', style: 'flex-basis:100%', hidden: true }, h('div', { class: 'rule-edit' }, sel, h('button', { class: 'btn btn-sm btn-primary', onclick: () => applyCategory(r, sel.value, addRule.checked, 'manual review', ctx) }, 'Apply')),
+  const catBox = h('div', { class: 'field', style: 'flex-basis:100%', hidden: true }, h('div', { class: 'rule-edit' }, sel, h('button', { class: 'btn btn-sm btn-primary', onclick: () => applyCategory(r, sel.value, addRule.checked, 'manual review', ctx) }, 'Save category')),
     h('label', { class: 'check', for: 'add-rule' }, addRule, `also add rule "${r.merchant} → …" (affects ${plural(rowsMatchingAlias(r.merchant), 'row')})`));
   const dupBox = h('div', { class: 'field', style: 'flex-basis:100%', hidden: true });
   const dupSel = h('select', { 'aria-label': 'Duplicate of' }, m.bills.filter(x => x.id !== r.id && x.merchant === r.merchant).concat(m.bills.filter(x => x.id !== r.id && x.merchant !== r.merchant)).slice(0, 300).map(x => h('option', { value: x.id }, `${srcLabel(x.id)} · ${x.invoice} · ${x.date || '—'} · ${money(x.cents)}`)));
   dupBox.append(h('div', { class: 'rule-edit' }, dupSel, h('button', { class: 'btn btn-sm btn-primary', onclick: () => { const d = decide(r.id, 'duplicate', { before: r.status, after: dupSel.value }); toast(`Marked as duplicate of ${srcLabel(dupSel.value)} · excluded from Bills`, { undo: () => { undoDecision(d.id); render(); } }); afterDecision(ctx, r); } }, 'Apply')));
   foot.append(...[
-    h('button', { class: 'btn btn-primary', 'data-key': 'a', title: 'Confirm as is (a)', onclick: () => { const d = decide(r.id, 'confirm', {}); toast('Confirmed as is', { undo: () => { undoDecision(d.id); render(); } }); afterDecision(ctx, r); } }, 'Confirm as is'),
+    h('button', { class: 'btn btn-primary', 'data-key': 'a', title: 'Confirm as is (a)', onclick: () => { const d = decide(r.id, 'confirm', {}); toast('Confirmed as is', { undo: () => { undoDecision(d.id); render(); } }); afterDecision(ctx, r); } }, 'Confirm review'),
     h('button', { class: 'btn', 'data-key': 'c', title: 'Set category (c)', onclick: () => { catBox.hidden = !catBox.hidden; dupBox.hidden = true; if (!catBox.hidden) (sel.closest('.combo')?.querySelector('.combo-trigger') || sel).focus(); } }, 'Set category ▾'),
     r.status === 'clean' ? h('button', { class: 'btn', 'data-key': 'd', title: 'Mark duplicate of… (d)', onclick: () => { dupBox.hidden = !dupBox.hidden; catBox.hidden = true; if (!dupBox.hidden) (dupSel.closest('.combo')?.querySelector('.combo-trigger') || dupSel).focus(); } }, 'Duplicate of…') : null,
     h('button', { class: 'btn', 'data-key': 'x', title: 'Exclude from Bills (x)', onclick: () => { const d = decide(r.id, 'exclude', { before: r.status, after: 'excluded' }); toast('Excluded from Bills · amount kept in the control total', { undo: () => { undoDecision(d.id); render(); } }); afterDecision(ctx, r); } }, 'Exclude'),
@@ -376,7 +394,7 @@ async function doImport(file) {
 async function clearAll() { if (!(await dialog('Clear all data?', 'Removes the loaded rows, your decisions and rules from this browser. Nothing was ever uploaded.', { ok: 'Clear', danger: true }))) return; S.rows = null; S.source = null; S.decisions = []; S.rules = { aliases: [], threshold: E.DEFAULT_HIGH_CENTS }; S.suggestions = {}; S.checks = null; invalidate(); await DB.clear(); if (route().view === '') render(); else go(''); toast('Cleared'); }   // on the import page the address does not change, so nothing redrew it
 
 function viewOverview(main, m) {
-  const rec = m.reconciliation, rc = reasonCounts(m), flagged = m.records.filter(r => r.reasons.length).length, checks = S.checks || runChecks();
+  const rec = m.reconciliation, rc = reasonCounts(m), flagged = m.records.filter(r => r.reasons.length).length, checks = currentChecks();
   main.append(overviewPlate(m, flagged - m.decidedCount > 0 ? flagged - m.decidedCount : 0));
   const cardDefs = [['clean', 'Retained', 'Structurally parseable: a usable date and amount. Retained in Bills; not yet approved for posting.'], ['duplicate', 'Duplicates', 'Exact duplicate: invoice ID, normalised merchant, date and cents all match an earlier row. Excluded once; the original stays.'], ['unparseable', 'Unreadable', 'Missing or malformed date/amount. Kept out of monthly totals; known amounts still count in the control total.'], ['excluded', 'Excluded by reviewer', 'Removed from Bills by a decision in the review queue. Undoable.']];
   main.append(h('div', { class: 'grid', style: 'margin-top:16px' }, cardDefs.filter(([k]) => rec.counts[k] || k !== 'excluded').map(([k, l, def]) => h('button', { class: 'stat', onclick: () => renderInspector(m, null, { emptyText: l + ' — ' + def }) || ($('#inspector').classList.add('open'), S.ui.inspectorOpen = true, $('#shell').classList.remove('no-inspector')) }, h('span', { class: 'lbl' }, l), h('span', { class: 'big' }, rec.counts[k]), h('span', { class: 'amt' }, k === 'unparseable' ? 'known CAD ' + money(rec.cents[k]) : 'CAD ' + money(rec.cents[k])))),
@@ -611,7 +629,7 @@ function viewLog(main, m, p) {
 }
 
 function viewExport(main, m) {
-  const checks=S.checks||runChecks(),bad=checks.items.filter(c=>!c.ok).length,rec=m.reconciliation,flagged=m.records.filter(r=>r.reasons.length).length;
+  const checks=currentChecks(),bad=checks.items.filter(c=>!c.ok).length,rec=m.reconciliation,flagged=m.records.filter(r=>r.reasons.length).length;
   const stamp=new Date().toISOString().slice(0,10),base=S.source.kind==='sample'?`seed${S.source.seed}`:(S.source.name||'file').replace(/\.[^.]+$/,'');
   main.append(h('div',{class:'page-head'},h('h1',{},'Export')));
   main.append(h('div',{class:'grid-2'},
@@ -624,7 +642,7 @@ function viewExport(main, m) {
         h('div',{},h('dt',{},`All ${m.records.length} input rows · CAD ${money(rec.known_input_cents)} known`),h('dd',{},`Includes kept bills, duplicates, unreadable rows and any review exclusions. ${rec.unknown_amount_rows} input rows have no readable amount and do not add to this total.`)),
         h('div',{},h('dt',{},`${m.bills.length} kept bills · CAD ${money(rec.cents.clean)}`),h('dd',{},'This is the Dashboard total. It leaves out duplicates, unreadable rows and review exclusions.'))),
       h('ul',{class:'checks'},checks.items.map(c=>h('li',{class:c.ok?'ok':'bad'},h('span',{},c.name,'. ',h('span',{class:'faint'},c.detail))))),
-      h('div',{class:'toolbar',style:'margin-top:12px'},h('button',{class:'btn',onclick:()=>{runChecks();render();}},'Run checks again'),h('span',{class:'hint'},`Last checked at ${hhmm(checks.at)} UTC`)),
+      h('div',{class:'toolbar',style:'margin-top:12px'},h('button',{class:'btn',onclick:()=>{runChecks();render();}},'Run checks again'),h('span',{class:'hint'},'Current state: ' + checks.reviewChanges + ' review changes · ' + checks.ruleCount + ' category rules · checked ' + checks.at.slice(11, 19) + ' UTC')),
       h('details',{class:'technical-check'},h('summary',{},'Compare the sample with the command-line version'),h('p',{class:'hint'},'This optional check applies to the supplied sample without review decisions or added rules. Save the original sample workbook, cleaned workbook and audit record in one folder, then run:'),h('code',{},'python3 -B demo.py check --out <folder> --no-repeat')))));
   main.append(h('div',{class:'export-downloads'},
     h('section',{class:'card'},h('h2',{},'Complete audit record'),h('p',{class:'hint'},'Every source row, cleanup change, review decision and rule, saved as ledger.json.'),h('div',{class:'toolbar',style:'margin-top:16px'},h('button',{class:'btn',onclick:()=>download(`ledger-${base}-${stamp}.json`,exportLedger(),'application/json')},'Download audit record'))),
@@ -758,6 +776,6 @@ async function init() {
   else if (!location.hash || (route().view !== '' && route().view !== 'import') || url.get('demo') === '1' || url.get('demo') === 'quiet') { await loadSample(parseInt(url.get('seed') || '42', 10) || 42); if (!location.hash || location.hash === '#/') location.replace('#/overview'); }
   render();
 }
-window.BillBench = { state: S, model: M, exportWorkbook, exportLedger, exportInput, runChecks, loadSample, decide, undoDecision, render };
+window.BillBench = { mountReviewActions: (container, id, ctx) => { container.replaceChildren(reviewControls(M().byId[id], M(), ctx)); container.querySelectorAll('button').forEach(button => { button.type = 'button'; }); window.ui.enhanceControls(container); }, state: S, model: M, exportWorkbook, exportLedger, exportInput, runChecks, loadSample, decide, undoDecision, render };
 init();
 })();
