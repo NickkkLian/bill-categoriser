@@ -2,34 +2,33 @@
 
 **Clean and reconcile CSV/XLSX bills, with a source row behind every retained amount.**
 
-For people reviewing inconsistent bill exports: normalise merchants, separate exact duplicates and send uncertain rows to a review queue before exporting a five-sheet workbook.
+For people reviewing inconsistent bill exports: normalise merchants, separate exact duplicates and send uncertain rows to a review queue before exporting a five-sheet workbook. A merchant you classified once does not need another model call or another manual category decision for each monthly export.
 
 **[Try the live demo](https://nickkklian.github.io/bill-categoriser/?demo=1)** · [Open the sample workbook](output/cleaned-bills.xlsx) · [Inspect its ledger](output/ledger.json)
 
-The bundled sample is synthetic: **125 input rows = 114 retained + 3 exact duplicates + 8 unparseable**. Possible duplicates stay retained and flagged; malformed amounts are never guessed.
+The bundled sample is synthetic: **125 input rows = 114 retained + 3 exact duplicates + 8 unparseable**, and every value links back to its source sheet and row.
 
 [![Bill Bench with reconciled row counts, a review action and the source ledger](docs/screenshot-overview.png)](https://nickkklian.github.io/bill-categoriser/?demo=1)
 
 ## Quick start
 
-Use the browser demo with no account or key, or run the offline Python CLI (Python 3.9+, standard library only):
+Use the browser demo with no account or key, or run the offline Python CLI (Python 3.9+, standard library only). This cleans the included January example with a reviewed rules file and checks the result:
 
 ```sh
 git clone https://github.com/NickkkLian/bill-categoriser.git
 cd bill-categoriser
-python3 -B demo.py check
+python3 -B demo.py clean examples/january.csv --rules examples/rules.json --out output-january --verify
 ```
 
-To clean your own exports, run `python3 -B demo.py clean bills.csv another-export.xlsx --out output-clean --verify`. This writes the output and runs the existing checker with the same threshold in one command; verification failure returns a nonzero exit status. Keep the original files unchanged for verification. The rules support CAD and explicit dates; unknown merchants require review. The default workflow processes files locally. Selecting your own model provider sends a suggestion request to that provider; model output is advisory and never silently recategorises a bill.
+To clean your own exports, run `python3 -B demo.py clean bills.csv another-export.xlsx --out output-clean --verify`. This writes the output and runs the existing checker with the same threshold in one command; verification failure returns a nonzero exit status. Keep the original files unchanged for verification. The rules support CAD and explicit dates; unknown merchants require review. The default workflow processes files locally; selecting your own model provider sends a suggestion request to that provider.
 
 ## Try it
 
 **In the browser** — open the [live demo](https://nickkklian.github.io/bill-categoriser/?demo=1), or serve the local folder with `python3 -m http.server -d docs` and open http://localhost:8000. The page starts with the 125 generated sample rows or restores your saved workbook. **Workbook tools** provides Import, Bills, Needs review, Duplicates, Rules, Change log, Dashboard and Export. Import accepts a dropped `.xlsx` or `.csv` file and parses it locally. The site assets and fonts are self-hosted.
 
-**From the command line** — tested on macOS 15.7 with Python 3.9, 3.12 and 3.13. No packages, accounts or network access are needed.
+**From the command line** — no packages, accounts or network access are needed.
 
 ```sh
-python3 -B demo.py check
 python3 -B demo.py build
 python3 -B demo.py check
 ```
@@ -37,6 +36,15 @@ python3 -B demo.py check
 `build` writes `output/dirty-input.xlsx`, `output/ledger.json` and `output/cleaned-bills.xlsx`; `check` verifies them (the delivered files are already built, so you can open [the workbook](output/cleaned-bills.xlsx) first). On Windows use `python` if that is your Python command.
 
 `clean <files...>` reads your exports in argument order and writes `ledger.json` and the same five-sheet `cleaned-bills.xlsx`, with monthly totals for the months present in your retained bills. It defaults to `output-clean/` in your current directory. By default it uses the existing exact merchant rules: a merchant outside the alias map stays `Uncategorised` for review. Add `--rules rules.json` to reuse aliases and the threshold exported from the browser. It makes no model calls. Use `--high-cad` on both `clean` and `check` to change the review threshold. `check` re-reads the original input paths recorded in the ledger, checks every output cell/formula and rebuilds twice; keep those files available and unchanged. Absolute source paths are recorded for traceability, including when two files share a name. The output cannot overwrite an input or the generated demo folder.
+
+| Seed 42 result | Rows | Known amount (CAD) |
+| --- | ---: | ---: |
+| Retained in Bills | 114 | 131,711.27 |
+| Exact duplicates excluded | 3 | 6,256.65 |
+| Unable to parse completely | 8 | 5,884.89 |
+| All input rows | 125 | 143,852.81 |
+
+Four input amounts are unknown; they are kept out of the arithmetic, never treated as zero. `131,711.27 + 6,256.65 + 5,884.89 = 143,852.81` is asserted by `check`, by the browser's own checks card, and by the workbook's reconciliation formula.
 
 ### Reuse reviewed rules next month
 
@@ -50,18 +58,9 @@ python3 -B demo.py clean examples/february.csv --rules examples/rules.json --out
 python3 -B demo.py check --out output-february --rules examples/rules.json
 ```
 
-The rules file sets the threshold, so there is no second `--high-cad` to remember. An explicitly supplied conflicting threshold is rejected before writing output. Invalid categories, malformed thresholds, empty normalised aliases and duplicate normalised aliases are also rejected rather than silently skipped. Categories are Supplies, Utilities, Software, Rent, Transport and Uncategorised. New merchants without an exact rule still require review.
+The rules file sets the threshold, so there is no second `--high-cad` to remember. Categories are Supplies, Utilities, Software, Rent, Transport and Uncategorised. New merchants without an exact rule still require review.
 
-The ledger stores a rules snapshot. Later `check --out output-february` uses that snapshot and can reproduce the result even if the original rules file moved; `check --rules FILE` additionally checks that the policy you supplied matches the snapshot. It is a reproducibility check against the recorded policy, not proof that the policy was the right human decision. Keep the original CSV/XLSX inputs unchanged. This feature reuses exported alias rules for new CLI runs; it does not import the browser's individual review decisions or make a manually reviewed browser ledger pass the CLI checker.
-
-| Seed 42 result | Rows | Known amount (CAD) |
-| --- | ---: | ---: |
-| Retained in Bills | 114 | 131,711.27 |
-| Exact duplicates excluded | 3 | 6,256.65 |
-| Unable to parse completely | 8 | 5,884.89 |
-| All input rows | 125 | 143,852.81 |
-
-Four input amounts are unknown; they are kept out of the arithmetic, never treated as zero. `131,711.27 + 6,256.65 + 5,884.89 = 143,852.81` is asserted by `check`, by the browser's own checks card, and by the workbook's reconciliation formula.
+The ledger stores a rules snapshot. Later `check --out output-february` uses that snapshot and can reproduce the result even if the original rules file moved; `check --rules FILE` additionally checks that the policy you supplied matches the snapshot.
 
 ## What the browser version adds
 
@@ -108,7 +107,42 @@ flowchart LR
 
 Seed 42 with the default threshold flags **39 of 125 rows (31.2%)**: 20 unmapped merchants, 10 high amounts, 3 exact duplicates, 2 possible duplicates, 2 missing dates, 2 missing amounts, 2 invalid amounts, 1 invalid date and 1 ambiguous date (a row can carry more than one reason). The sample deliberately spreads amounts across CAD 12 to 2,800 with explicit edge cases; it is a stress sample, not a measured bill distribution. Change the high-amount threshold with `--high-cad AMOUNT` at build time (and pass the same value to `check`); the browser has the same control on the Rules page.
 
-## Checks, a deliberately broken workbook, and the evaluation set
+## The optional model step
+
+`python3 -B demo.py build --llm` asks a model about each `Uncategorised` merchant and writes `output/llm-suggestions.json` with `category / confidence / reason`. Answers are cached in `docs/llm-cache.json`, and that cache ships with the repository, so later builds and the browser page work offline and need no key. Suggestions only ever enter the review queue; the ledger and workbook never change on their own.
+
+The model is your choice. Claude is the default, not a requirement:
+
+```sh
+ANTHROPIC_API_KEY=... python3 -B demo.py build --llm                                    # Claude, claude-sonnet-5-5
+LLM_PROVIDER=openai OPENAI_API_KEY=... LLM_MODEL=your-model-id python3 -B demo.py build --llm
+LLM_PROVIDER=gemini GEMINI_API_KEY=... LLM_MODEL=your-model-id python3 -B demo.py build --llm
+LLM_PROVIDER=openai-compatible LLM_BASE_URL=http://localhost:11434/v1 LLM_MODEL=your-model-id python3 -B demo.py build --llm   # Ollama, LM Studio, vLLM…
+LLM_PROVIDER=chatgpt LLM_MODEL=your-model-id python3 -B demo.py build --llm             # your ChatGPT plan (not yet tried live), see DOCS.md
+```
+
+On the 30-merchant evaluation set the cached Claude run (`claude-sonnet-5`, 2026-09-22) scored 30 of 30, against 19 of 30 for a keyword list. Request formats, what has been run against each live service, and the ChatGPT-plan sign-in are in [DOCS.md](DOCS.md#the-optional-llm-step).
+
+## Supported layouts
+
+`build` and the browser's strict mode use the demo layout: three sheets named `Export A / B / C` whose fourth row holds one of the three known header sets (`Invoice / Vendor / Date / Amount`, `Bill ID / Merchant name / Invoice date / Total CAD`, `Reference / Payee / Billed on / Gross amount`).
+
+`clean` accepts UTF-8 CSV (with or without BOM; comma, semicolon or tab delimiters) and XLSX with arbitrary sheet names and column order. It looks in the first five rows of each nonempty sheet for one unambiguous column per field. Header aliases ignore case, spaces and punctuation:
+
+| Field | Accepted headers |
+| --- | --- |
+| Invoice | Invoice, Invoice ID, Invoice number, Bill ID, Bill number, Reference |
+| Merchant | Vendor, Vendor name, Merchant, Merchant name, Payee |
+| Date | Date, Invoice date, Bill date, Billed on, Transaction date |
+| CAD amount | Amount, Amount CAD, Total, Total CAD, Total amount, Gross amount |
+
+Additional labelled metadata columns are ignored; data beyond the header width is rejected. Empty rows/sheets are skipped. A nonempty sheet without a matching header, ambiguous columns or actual formula cells stops the import before writing outputs. CSV source rows count logical records, so quoted multiline fields stay together. Numeric Excel amounts are accepted to the cent without rounding extra precision. Other parsing boundaries stay the same: explicit text dates only, CAD only, no Excel serial dates, PDFs, macros or guessed slash-date order. Unsupported dates/amounts stay unparseable with their original values in the review queue.
+
+The browser's tolerant mapping remains separate: it searches header words in the first five rows and reports matches. The existing synthetic parity checks still cover the shared cleaning rules and sample workbook; they do not prove every uploaded layout has identical mapping in both interfaces.
+
+## Checks
+
+The command line was tested on macOS 15.7 with Python 3.9, 3.12 and 3.13.
 
 ```sh
 python3 -B demo.py check
@@ -121,8 +155,6 @@ python3 -B demo.py eval
 `break` runs three mutations in disposable copies and requires the real checker to reject each: a deleted Bills row, a changed threshold default that produces 92 review rows instead of 39, and a cache entry with a category outside the allowed set. It exits 0 only after observing all three failures; your delivered files stay intact.
 
 `eval` scores the optional LLM categoriser on `eval/merchants.json`: 30 synthetic merchant names, 20 that carry an obvious keyword and 10 that need inference. It prints the keyword baseline next to the cached model output and passes at 80% accuracy. Both have been run: 2026-09-22, `claude-sonnet-5`, **30 of 30**, against a keyword baseline of **19 of 30**. The default is now `claude-sonnet-5-5`, which has not been scored on this set.
-
-The nineteen is worth breaking down, because the round number is misleading. The baseline gets 19 of the 20 keyword names and 0 of the 10 inference names — it is not that the inference names account for the whole gap. The one keyword name it misses is `Summit Plaza Leasing`: the rule for rent looks for `lease`, and the name says `Leasing`. That is the ordinary failure of a keyword list, and it is why the eval now computes the split and prints it rather than stating it. Read the whole comparison as what this set was built to show — thirty synthetic names cannot say how much better a model is in general. Without the cache the eval reports **NOT RUN** (exit code 2) rather than a made-up number.
 
 For another synthetic dataset:
 
@@ -144,80 +176,11 @@ The web engine's parity check needs Node 22 (for `DecompressionStream('deflate-r
 node docs/check-web.mjs
 ```
 
-### The optional LLM step
-
-`python3 -B demo.py build --llm` asks a model about each `Uncategorised` merchant and writes `output/llm-suggestions.json` with `category / confidence / reason`; answers are cached in `docs/llm-cache.json` with the provider, model and date, keyed by normalised merchant name, so later builds and the browser page work offline. Since that cache ships with the repository, running the command below on the delivered dataset sends nothing and needs no key — the line it prints says whether the answers were asked of the model or read from the cache, so the two are never confused. The ledger and workbook never change: the step is advisory by design, and `check` asserts that. Any failure — no key, no model id, timeout, malformed reply, a category outside the allowed set — falls back to `Uncategorised` without stopping the build.
-
-The delivered `output/llm-suggestions.json` is that step's real output on this dataset, from the same 2026-09-22 run: the seed-42 demo leaves 20 rows uncategorised under two merchant names, `=SYNTHETIC_FORMULA_TEXT()` and `Demo Other 06`, and the model returned no category for either — a formula string and a placeholder are not merchants. A file of refusals is the honest result here, and it is also the case worth seeing: the step is allowed to decline.
-
-The model is your choice. Claude is the default, not a requirement:
-
-```sh
-ANTHROPIC_API_KEY=... python3 -B demo.py build --llm                                    # Claude, claude-sonnet-5-5
-LLM_PROVIDER=openai OPENAI_API_KEY=... LLM_MODEL=your-model-id python3 -B demo.py build --llm
-LLM_PROVIDER=gemini GEMINI_API_KEY=... LLM_MODEL=your-model-id python3 -B demo.py build --llm
-LLM_PROVIDER=openai-compatible LLM_BASE_URL=http://localhost:11434/v1 LLM_MODEL=your-model-id python3 -B demo.py build --llm   # Ollama, LM Studio, vLLM…
-LLM_PROVIDER=chatgpt LLM_MODEL=your-model-id python3 -B demo.py build --llm             # your ChatGPT plan (not yet tried live), see below
-```
-
-Only Claude has a default model id; for the others you name one from your provider's list, so nothing here goes stale when a vendor renames its models. The model stays your choice: the provider and the model id are free to set, for Claude too. Only the default is fixed, and for Claude it is `claude-sonnet-5-5` (the author's apps default to Claude Opus 5.5 or Sonnet 5.5 only). Sonnet 5.5 thinks on every request and the thinking counts toward the output limit, so Claude requests get `max_tokens` 16000; the other providers keep 2048. A Claude reply that stops with `refusal` or `max_tokens` is reported as that, not parsed as half an answer. `llm.py` (CLI) and `docs/llm.js` (browser) are the same small adapter in two languages, with no SDKs. They use nothing provider-specific as a precondition — no tool calling, JSON mode or response schemas. The prompt asks for a JSON array in plain words, and the parser keeps only well-formed entries whose category is in the allowed set, so a model that ignores the instruction produces no suggestions rather than wrong ones. Keys are sent in headers only, never in a URL, and never written to disk or browser storage.
-
-| Provider | How to select it | What has been run |
-|---|---|---|
-| Claude (Anthropic) | default · `ANTHROPIC_API_KEY` | Request and reply format checked against a local mock of the documented API: end to end from the CLI (`tests/test_demo_llm.py`) and through the page's own adapter `docs/llm.js` in Node (`node docs/check-llm.mjs`, including the header Anthropic requires for calls from a page). **Run against the live API**, 2026-09-22 with `claude-sonnet-5`: 30 of 30 on the evaluation set. `docs/llm-cache.json` is what those runs produced — the 30 evaluation names in batches of twelve, plus a separate `build --llm` for the two the demo leaves uncategorised. |
-| OpenAI | `LLM_PROVIDER=openai` · `OPENAI_API_KEY` · `LLM_MODEL` | Format checked against a local mock, from the CLI and through `docs/llm.js` (sends `max_completion_tokens`, no `temperature`). Should work per OpenAI's documentation; **not run against the live API.** |
-| Google Gemini | `LLM_PROVIDER=gemini` · `GEMINI_API_KEY` · `LLM_MODEL` | Format checked against a local mock, from the CLI and through `docs/llm.js` (key in the `x-goog-api-key` header). Should work per Google's documentation; **not run against the live API.** |
-| OpenAI-compatible | `LLM_PROVIDER=openai-compatible` · `LLM_BASE_URL` · `LLM_MODEL` · optional `LLM_API_KEY` | Format checked against a local mock, from the CLI and through `docs/llm.js` (no key, no `Authorization` header). **Not run against a real Ollama, LM Studio or vLLM server.** A server called from the page must allow its origin (Ollama: `OLLAMA_ORIGINS`). |
-| ChatGPT plan (Continue with ChatGPT) | `LLM_PROVIDER=chatgpt` · `LLM_MODEL` · one-time `python3 chatgpt_auth.py login` | Sign-in, refresh, sign-out and the Responses stream checked against a local mock of OpenAI's documented flow, with the ID token signed by a real RSA key (`tests/test_chatgpt_auth.py`), plus `demo.py build --llm` end to end; `tests/chatgpt_mutants.py` breaks each of 40 rules once and the tests catch every one. CLI only. **Not yet signed in against the live service.** |
-
-```sh
-python3 -m unittest discover -s tests -v     # adapter against a mock of each provider; demo.py build --llm end to end per provider
-python3 -B tests/chatgpt_mutants.py           # Continue with ChatGPT: break each rule in a disposable copy, expect red
-node docs/check-llm.mjs                       # the browser adapter, same contract
-```
-
-### Continue with ChatGPT (your ChatGPT plan, no API key)
-
-**Status: not yet tried with a real sign-in.** The flow is built from OpenAI's documentation and tested against a local mock of it. Nobody has signed in to the live service with this tool, so everything below describes what the documentation says should happen, not something that has been seen to work.
-
-This provider is meant to run the model step on a ChatGPT Plus or Pro plan instead of an API key. It follows OpenAI's official **Sign in with ChatGPT** flow for open-source, locally hosted apps ([OpenAI's documentation](https://developers.openai.com/siwc/token-sharing-open-source)); no unofficial endpoint and no scraped session is involved.
-
-```sh
-python3 chatgpt_auth.py login        # opens your browser: sign in to ChatGPT and allow the app to use your plan
-python3 chatgpt_auth.py models       # the model ids your plan can use
-LLM_PROVIDER=chatgpt LLM_MODEL=a-model-id-from-that-list python3 -B demo.py build --llm
-python3 chatgpt_auth.py status       # who is signed in and whether plan usage is on (never prints a token)
-python3 chatgpt_auth.py logout       # revokes the session at OpenAI, then clears the local tokens
-```
-
-**What it needs** (per OpenAI's documentation). An eligible ChatGPT Plus or Pro plan. Other accounts can sign in, but OpenAI answers their requests with `subscription_sharing_user_not_eligible`; that error is shown as it came, with the other providers named. Nothing switches to another provider or to an API key on its own. On Plus, the five-hour usage limit is shared with every other app that uses your plan; usage and per-app limits are at [chatgpt.com/settings/usage](https://chatgpt.com/settings/usage).
-
-**Preview limits** ([OpenAI's list](https://developers.openai.com/siwc/token-sharing-open-source/preview-limitations)). Responses API only; every request is sent with `store: false` and `stream: true`; fields such as `max_output_tokens` and `temperature` are not accepted, so this provider sends neither (the 16000 and 2048 output budgets above do not apply to it).
-
-**How it is built.** The first `login` registers "Bill Bench" as an agent on your ChatGPT account (`client_id=dynamic_agent_client`, a browser callback on `http://127.0.0.1:1455/auth/callback` or another free port, PKCE, no client secret); later sign-ins reuse the client id OpenAI issued. The ID token is checked against OpenAI's published keys (RS256 signature, issuer, audience, expiry, nonce), and plan usage counts as on only when OpenAI grants `chatgpt.tokens.use.direct`. The signature check uses the standard library, because this project has no third-party dependencies; OpenAI's guide suggests a maintained JWT library where one can be used. Tokens are stored in `~/.config/bill-bench/chatgpt/` (or `CHATGPT_AUTH_DIR`), one file per account, written atomically with mode 0600; never in this repository, never printed or logged. The access token is refreshed about five minutes before it expires, and the rotating refresh token is replaced at the same time.
-
-The browser page does not offer this provider: the sign-in needs a local callback listener, which a static page cannot run.
-
-## Supported layouts
-
-`build` and the browser's strict mode use the demo layout: three sheets named `Export A / B / C` whose fourth row holds one of the three known header sets (`Invoice / Vendor / Date / Amount`, `Bill ID / Merchant name / Invoice date / Total CAD`, `Reference / Payee / Billed on / Gross amount`).
-
-`clean` accepts UTF-8 CSV (with or without BOM; comma, semicolon or tab delimiters) and XLSX with arbitrary sheet names and column order. It looks in the first five rows of each nonempty sheet for one unambiguous column per field. Header aliases ignore case, spaces and punctuation:
-
-| Field | Accepted headers |
-| --- | --- |
-| Invoice | Invoice, Invoice ID, Invoice number, Bill ID, Bill number, Reference |
-| Merchant | Vendor, Vendor name, Merchant, Merchant name, Payee |
-| Date | Date, Invoice date, Bill date, Billed on, Transaction date |
-| CAD amount | Amount, Amount CAD, Total, Total CAD, Total amount, Gross amount |
-
-Additional labelled metadata columns are ignored; data beyond the header width is rejected. Empty rows/sheets are skipped. A nonempty sheet without a matching header, ambiguous columns or actual formula cells stops the import before writing outputs. CSV source rows count logical records, so quoted multiline fields stay together. Numeric Excel amounts are accepted to the cent without rounding extra precision. Other parsing boundaries stay the same: explicit text dates only, CAD only, no Excel serial dates, PDFs, macros or guessed slash-date order. Unsupported dates/amounts stay unparseable with their original values in the review queue.
-
-The browser's tolerant mapping remains separate: it searches header words in the first five rows and reports matches. The existing synthetic parity checks still cover the shared cleaning rules and sample workbook; they do not prove every uploaded layout has identical mapping in both interfaces.
-
 ## Where this is not suitable
 
 This is not a general Excel migration tool and not an accounting system. It does not support arbitrary workbooks beyond the header mapping above, OCR/PDF invoices, macros, tax treatment, exchange-rate conversion or posting to accounting software. Review the workbook before using a result in another system.
+
+Reusing a rules file is a reproducibility check against the recorded policy, not proof that the policy was the right human decision. Keep the original CSV/XLSX inputs unchanged. This feature reuses exported alias rules for new CLI runs; it does not import the browser's individual review decisions or make a manually reviewed browser ledger pass the CLI checker.
 
 **Not verified here:** native Windows and Linux runs of the checker (only macOS was run locally; CI covers Ubuntu, Windows and macOS on Python 3.9 and 3.13 — see the Actions tab); browser exports that include reviewer decisions or rules cannot be checked by `demo.py check`, only zero-decision exports can; the LLM step has been run and `docs/llm-cache.json` is the whole of what that run left behind — the file records the provider, model and date, and nothing in this repository shows that a request went over the network, so a hand-written cache would be indistinguishable from this one; the tolerant header mapping was tested on synthetic files only; the checker shares some rules with the producer, so independent review remains useful.
 
