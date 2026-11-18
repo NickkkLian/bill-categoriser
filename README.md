@@ -48,7 +48,7 @@ Four input amounts are unknown; they are kept out of the arithmetic, never treat
 
 ### Reuse reviewed rules next month
 
-In the browser's **Rules & thresholds** view, choose **Export rules JSON** after applying your reviewed aliases. `clean --rules FILE` accepts that exact `aliases` / `high_cad` schema, so a merchant you classified once does not need another model call or another manual category decision for each monthly export. Matching remains exact after the same normalisation used by the browser.
+In the browser's **Rules & thresholds** view, choose **Export rules JSON** after applying your reviewed aliases. `clean --rules FILE` accepts that exact `aliases` / `high_cad` schema. Matching remains exact after the same normalisation used by the browser.
 
 Try the included synthetic two-month example:
 
@@ -72,7 +72,7 @@ The ledger stores a rules snapshot. Later `check --out output-february` uses tha
 - **Rules** — alias → category rules and the high-amount threshold; edits show their impact (rows re-categorised, flagged, un-flagged) before you apply them.
 - **Suggestions** for unmapped merchants: *cached model output* shipped in the repo (model and date shown, selected by default because it needs no key and no network), *Simulate* (canned keyword rules, no network, labelled simulated), or *your own model* — Claude, OpenAI, Google Gemini or any OpenAI-compatible endpoint such as Ollama (the key is kept in the tab's memory, never stored, and is cleared when you pick another provider). Suggestions only ever enter the review queue; accepting one is recorded as your decision.
 - **Export** — the same five-sheet workbook, `ledger.json` and `rules.json`, built in the browser with the same OOXML writer the CLI uses. A zero-decision export of the sample is byte-identical to the CLI's `ledger.json`, and `demo.py check` accepts a browser-built folder.
-- One header icon switches the approved palette between light and dark. Keyboard settings remain in Workbook tools. URL state, IndexedDB persistence and the Import page's "Clear all data" action remain available.
+- One header icon switches between light and dark. Keyboard settings are in Workbook tools. URL state, IndexedDB persistence and the Import page's "Clear all data" action are available.
 
 ## How it fits together
 
@@ -136,9 +136,9 @@ On the 30-merchant evaluation set the cached Claude run (`claude-sonnet-5`, 2026
 | Date | Date, Invoice date, Bill date, Billed on, Transaction date |
 | CAD amount | Amount, Amount CAD, Total, Total CAD, Total amount, Gross amount |
 
-Additional labelled metadata columns are ignored; data beyond the header width is rejected. Empty rows/sheets are skipped. A nonempty sheet without a matching header, ambiguous columns or actual formula cells stops the import before writing outputs. CSV source rows count logical records, so quoted multiline fields stay together. Numeric Excel amounts are accepted to the cent without rounding extra precision. Other parsing boundaries stay the same: explicit text dates only, CAD only, no Excel serial dates, PDFs, macros or guessed slash-date order. Unsupported dates/amounts stay unparseable with their original values in the review queue.
+Additional labelled metadata columns are ignored; data beyond the header width is rejected. Empty rows/sheets are skipped. A nonempty sheet without a matching header, ambiguous columns or actual formula cells stops the import before writing outputs. CSV source rows count logical records, so quoted multiline fields stay together. Numeric Excel amounts are accepted to the cent without rounding extra precision. Other parsing boundaries: explicit text dates only, CAD only, no Excel serial dates, PDFs, macros or guessed slash-date order. Unsupported dates/amounts stay unparseable with their original values in the review queue.
 
-The browser's tolerant mapping remains separate: it searches header words in the first five rows and reports matches. The existing synthetic parity checks still cover the shared cleaning rules and sample workbook; they do not prove every uploaded layout has identical mapping in both interfaces.
+The browser's tolerant mapping is separate: it searches header words in the first five rows and reports matches. The synthetic parity checks cover the shared cleaning rules and sample workbook, not every uploaded layout.
 
 ## Checks
 
@@ -150,7 +150,7 @@ python3 -B demo.py break
 python3 -B demo.py eval
 ```
 
-`check` verifies source identities, disjoint partitions, known amounts, every output cell and formula, review and change-log contents, parsing boundaries, repeatability (two rebuilds must match the delivered files byte for byte) and, new in this version, that the LLM cache is well-formed and that any suggestions file is purely advisory.
+`check` verifies source identities, disjoint partitions, known amounts, every output cell and formula, review and change-log contents, parsing boundaries, repeatability (two rebuilds must match the delivered files byte for byte), that the LLM cache is well-formed and that any suggestions file is purely advisory.
 
 `break` runs three mutations in disposable copies and requires the real checker to reject each: a deleted Bills row, a changed threshold default that produces 92 review rows instead of 39, and a cache entry with a category outside the allowed set. It exits 0 only after observing all three failures; your delivered files stay intact.
 
@@ -182,9 +182,9 @@ This is not a general Excel migration tool and not an accounting system. It does
 
 Reusing a rules file is a reproducibility check against the recorded policy, not proof that the policy was the right human decision. Keep the original CSV/XLSX inputs unchanged. This feature reuses exported alias rules for new CLI runs; it does not import the browser's individual review decisions or make a manually reviewed browser ledger pass the CLI checker.
 
-**Not verified here:** native Windows and Linux runs of the checker (only macOS was run locally; CI covers Ubuntu, Windows and macOS on Python 3.9 and 3.13 — see the Actions tab); browser exports that include reviewer decisions or rules cannot be checked by `demo.py check`, only zero-decision exports can; the LLM step has been run and `docs/llm-cache.json` is the whole of what that run left behind — the file records the provider, model and date, and nothing in this repository shows that a request went over the network, so a hand-written cache would be indistinguishable from this one; the tolerant header mapping was tested on synthetic files only; the checker shares some rules with the producer, so independent review remains useful.
+**Not verified here:** native Windows and Linux runs of the checker (only macOS was run locally; CI covers Ubuntu, Windows and macOS on Python 3.9 and 3.13 — see the Actions tab); browser exports that include reviewer decisions or rules cannot be checked by `demo.py check`, only zero-decision exports can; the tolerant header mapping was tested on synthetic files only; the checker shares some rules with the producer, so independent review remains useful.
 
-The CLI intake tests use separate file layouts and policy assertions (`python3 -B -m unittest discover -s tests -p test_clean.py -v`). A private generator and ground truth can be kept outside this repository and used to score `clean` without exposing truth to the cleaner. Passing synthetic fixtures is not evidence of beating a plain model; no new model comparison is claimed here.
+The CLI intake tests use separate file layouts and policy assertions (`python3 -B -m unittest discover -s tests -p test_clean.py -v`).
 
 ## Repository layout
 

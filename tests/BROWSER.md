@@ -1,7 +1,7 @@
 # Public sample browser checks
 
 `check-ui.mjs` uses Node 22+ and an already running headless Chrome with its
-debugging endpoint on `127.0.0.1:9333`. Use an approved temporary Chrome profile.
+debugging endpoint on `127.0.0.1:9333`. Use a temporary Chrome profile.
 The harness creates an isolated browser context, blocks non-loopback page
 requests, and closes its context when finished.
 

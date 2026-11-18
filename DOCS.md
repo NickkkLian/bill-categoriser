@@ -1,7 +1,5 @@
 # Bill Bench: details
 
-Material moved from the README so its first pages show what the tool does. Nothing here was rewritten.
-
 ## Rules file validation
 
 An explicitly supplied conflicting threshold is rejected before writing output. Invalid categories, malformed thresholds, empty normalised aliases and duplicate normalised aliases are also rejected rather than silently skipped.
@@ -10,13 +8,13 @@ An explicitly supplied conflicting threshold is rejected before writing output. 
 
 On the 30-name evaluation set (`python3 -B demo.py eval`), the cached `claude-sonnet-5` run scored 30 of 30 and the keyword baseline 19 of 30.
 
-The nineteen is worth breaking down, because the round number is misleading. The baseline gets 19 of the 20 keyword names and 0 of the 10 inference names — it is not that the inference names account for the whole gap. The one keyword name it misses is `Summit Plaza Leasing`: the rule for rent looks for `lease`, and the name says `Leasing`. That is the ordinary failure of a keyword list, and it is why the eval now computes the split and prints it rather than stating it. Read the whole comparison as what this set was built to show — thirty synthetic names cannot say how much better a model is in general. Without the cache the eval reports **NOT RUN** (exit code 2) rather than a made-up number.
+The nineteen is worth breaking down, because the round number is misleading. The baseline gets 19 of the 20 keyword names and 0 of the 10 inference names — it is not that the inference names account for the whole gap. The one keyword name it misses is `Summit Plaza Leasing`: the rule for rent looks for `lease`, and the name says `Leasing`. That is the ordinary failure of a keyword list; the eval prints this split. Read the whole comparison as what this set was built to show — thirty synthetic names cannot say how much better a model is in general. Without the cache the eval reports **NOT RUN** (exit code 2).
 
 ## The optional LLM step
 
 `python3 -B demo.py build --llm` asks a model about each `Uncategorised` merchant and writes `output/llm-suggestions.json` with `category / confidence / reason`; answers are cached in `docs/llm-cache.json` with the provider, model and date, keyed by normalised merchant name, so later builds and the browser page work offline. Since that cache ships with the repository, running the command below on the delivered dataset sends nothing and needs no key — the line it prints says whether the answers were asked of the model or read from the cache, so the two are never confused. The ledger and workbook never change: the step is advisory by design, and `check` asserts that. Any failure — no key, no model id, timeout, malformed reply, a category outside the allowed set — falls back to `Uncategorised` without stopping the build.
 
-The delivered `output/llm-suggestions.json` is that step's real output on this dataset, from the same 2026-09-22 run: the seed-42 demo leaves 20 rows uncategorised under two merchant names, `=SYNTHETIC_FORMULA_TEXT()` and `Demo Other 06`, and the model returned no category for either — a formula string and a placeholder are not merchants. A file of refusals is the honest result here, and it is also the case worth seeing: the step is allowed to decline.
+The delivered `output/llm-suggestions.json` is that step's real output on this dataset, from the same 2026-09-22 run: the seed-42 demo leaves 20 rows uncategorised under two merchant names, `=SYNTHETIC_FORMULA_TEXT()` and `Demo Other 06`, and the model returned no category for either — a formula string and a placeholder are not merchants. The step is allowed to decline.
 
 The model is your choice. Claude is the default, not a requirement:
 
@@ -28,7 +26,7 @@ LLM_PROVIDER=openai-compatible LLM_BASE_URL=http://localhost:11434/v1 LLM_MODEL=
 LLM_PROVIDER=chatgpt LLM_MODEL=your-model-id python3 -B demo.py build --llm             # your ChatGPT plan (not yet tried live), see below
 ```
 
-Only Claude has a default model id; for the others you name one from your provider's list, so nothing here goes stale when a vendor renames its models. The model stays your choice: the provider and the model id are free to set, for Claude too. Only the default is fixed, and for Claude it is `claude-sonnet-5-5` (the author's apps default to Claude Opus 5.5 or Sonnet 5.5 only). Sonnet 5.5 thinks on every request and the thinking counts toward the output limit, so Claude requests get `max_tokens` 16000; the other providers keep 2048. A Claude reply that stops with `refusal` or `max_tokens` is reported as that, not parsed as half an answer. `llm.py` (CLI) and `docs/llm.js` (browser) are the same small adapter in two languages, with no SDKs. They use nothing provider-specific as a precondition — no tool calling, JSON mode or response schemas. The prompt asks for a JSON array in plain words, and the parser keeps only well-formed entries whose category is in the allowed set, so a model that ignores the instruction produces no suggestions rather than wrong ones. Keys are sent in headers only, never in a URL, and never written to disk or browser storage.
+Only Claude has a default model id, `claude-sonnet-5-5`, and it can be changed like any other; for the others you name one from your provider's list, so nothing here goes stale when a vendor renames its models. Sonnet 5.5 thinks on every request and the thinking counts toward the output limit, so Claude requests get `max_tokens` 16000; the other providers keep 2048. A Claude reply that stops with `refusal` or `max_tokens` is reported as that, not parsed as half an answer. `llm.py` (CLI) and `docs/llm.js` (browser) are the same small adapter in two languages, with no SDKs. They use nothing provider-specific as a precondition — no tool calling, JSON mode or response schemas. The prompt asks for a JSON array in plain words, and the parser keeps only well-formed entries whose category is in the allowed set, so a model that ignores the instruction produces no suggestions rather than wrong ones. Keys are sent in headers only, never in a URL, and never written to disk or browser storage.
 
 | Provider | How to select it | What has been run |
 |---|---|---|
@@ -46,7 +44,7 @@ node docs/check-llm.mjs                       # the browser adapter, same contra
 
 ## Continue with ChatGPT (your ChatGPT plan, no API key)
 
-**Status: not yet tried with a real sign-in.** The flow is built from OpenAI's documentation and tested against a local mock of it. Nobody has signed in to the live service with this tool, so everything below describes what the documentation says should happen, not something that has been seen to work.
+**Status: not yet tried with a real sign-in.** The flow is built from OpenAI's documentation and tested against a local mock of it, so everything below describes what the documentation says should happen.
 
 This provider is meant to run the model step on a ChatGPT Plus or Pro plan instead of an API key. It follows OpenAI's official **Sign in with ChatGPT** flow for open-source, locally hosted apps ([OpenAI's documentation](https://developers.openai.com/siwc/token-sharing-open-source)); no unofficial endpoint and no scraped session is involved.
 
